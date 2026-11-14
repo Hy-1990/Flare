@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.flare/
+.loop-runs/
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+docs/verification/*.mp4
+docs/verification/*.png
+docs/verification/*.json
+docs/verification/*.jpg
