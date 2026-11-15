@@ -20,7 +20,9 @@ Runtime and build dependencies retain their respective licenses. The installed p
 - Lucide — ISC
 - Playwright — Apache-2.0
 - Vite / TypeScript / Prettier — MIT / Apache-2.0 / MIT respectively
-- DM Sans variable font (Fontsource distribution) — SIL Open Font License 1.1; see `public/fonts/OFL-DM-Sans.txt`
+- IBM Plex Sans variable, Noto Sans SC variable, and IBM Plex Mono (Fontsource distributions) — SIL Open Font License 1.1; see the corresponding `public/fonts/OFL-*.txt` notices. The DM Sans license remains for previously distributed assets.
 - FFmpeg and Chromium are external runtime tools, not bundled in this repository. Their own licenses apply.
 
 The starter illustrations, procedural score, animation components and base workflow prompts are original to this repository; runtime style-guide excerpts retain upstream terms. User-provided media and outputs from external services are not relicensed by the Flare source-code license.
+
+Interface refinement follows the **Impeccable** skill by Paul Bakaus, with an Operate-mode focus on task hierarchy, readable typography, accessible controls, localization and semantic themes. The skill is not bundled in the application.

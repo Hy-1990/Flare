@@ -1,3 +1,4 @@
+import { t as tr } from "./preferences";
 import React, { useEffect, useRef } from "react";
 import { X } from "lucide-react";
 export default function Modal({
@@ -61,7 +62,11 @@ export default function Modal({
       >
         <header className="modal-head">
           <h2>{title}</h2>
-          <button className="icon-button" aria-label="关闭" onClick={onClose}>
+          <button
+            className="icon-button"
+            aria-label={tr("关闭")}
+            onClick={onClose}
+          >
             <X />
           </button>
         </header>

@@ -1,3 +1,10 @@
+import {
+  t as tr,
+  usePreferences,
+  styleName,
+  categoryName,
+  styleDescription,
+} from "./preferences";
 import React, { useEffect, useState } from "react";
 import {
   Search,
@@ -37,24 +44,26 @@ export function StylePicker({
   return (
     <div className="style-picker">
       <label className="field">
-        视觉风格
+        {tr("视觉风格")}
         <select
-          aria-label="视觉风格"
+          aria-label={tr("视觉风格")}
           value={value}
           onChange={(e) => onChange(e.target.value as Style)}
         >
-          <optgroup label="Flare 内置">
+          <optgroup label={tr("Flare 内置")}>
             {LEGACY_STYLES.map((s) => (
               <option key={s.id} value={s.id}>
-                {s.name} · 程序动画
+                {styleName(s)}
+                {tr("· 程序动画")}
               </option>
             ))}
           </optgroup>
           {CATEGORIES.map((c) => (
-            <optgroup label={c.name} key={c.id}>
+            <optgroup label={categoryName(c)} key={c.id}>
               {UPSTREAM_STYLES.filter((s) => s.category === c.id).map((s) => (
                 <option value={s.id} key={s.id}>
-                  {s.name} · {s.mode === "image" ? "图片辅助" : "程序基础版"}
+                  {styleName(s)} ·{" "}
+                  {s.mode === "image" ? tr("图片辅助") : tr("程序基础版")}
                 </option>
               ))}
             </optgroup>
@@ -63,10 +72,14 @@ export function StylePicker({
       </label>
       <p className="field-hint">
         {selected?.mode === "image"
-          ? "此风格使用风格图片、运镜和字幕制作。每个镜头需要导入或生成图片后才能导出，不是原样片的完整程序引擎。"
+          ? tr(
+              "此风格使用风格图片、运镜和字幕制作。每个镜头需要导入或生成图片后才能导出，不是原样片的完整程序引擎。",
+            )
           : selected?.origin === "upstream"
-            ? "程序动画基础版：可直接预览与导出，保留该风格的基本视觉特征；不等同原样片的完整制作效果。"
-            : "使用 Flare 原创程序动画，无需图片或模型密钥。"}
+            ? tr(
+                "程序动画基础版：可直接预览与导出，保留该风格的基本视觉特征；不等同原样片的完整制作效果。",
+              )
+            : tr("使用 Flare 原创程序动画，无需图片或模型密钥。")}
       </p>
     </div>
   );
@@ -79,14 +92,14 @@ function Poster({ style, className = "" }: { style: any; className?: string }) {
       style={{ background: style.color }}
     >
       <Layers3 />
-      <span>{style.name}</span>
-      <small>样片缩略图暂不可用</small>
+      <span>{styleName(style)}</span>
+      <small>{tr("样片缩略图暂不可用")}</small>
     </div>
   ) : (
     <img
       className={className}
       src={`/api/styles/${style.slug}/poster.jpg`}
-      alt={`${style.name} · 原项目样片参考`}
+      alt={tr("{0} · 原项目样片参考", { 0: styleName(style) })}
       loading="lazy"
       onError={() => setFailed(true)}
     />
@@ -124,7 +137,7 @@ function StyleDetail({
     return () => controller.abort();
   }, [style.id, retry]);
   return (
-    <Modal title={style.name} wide onClose={onClose}>
+    <Modal title={styleName(style)} wide onClose={onClose}>
       <div className="style-detail">
         <div className="detail-reference">
           {style.origin === "upstream" ? (
@@ -144,7 +157,7 @@ function StyleDetail({
                   onClick={() => setVideo(true)}
                 >
                   <Clapperboard />
-                  观看原样片
+                  {tr("观看原样片")}
                 </button>
               </>
             )
@@ -154,21 +167,26 @@ function StyleDetail({
               style={{ background: style.color }}
             >
               <Layers3 />
-              <span>{style.name}</span>
-              <small>Flare 原创程序动画</small>
+              <span>{styleName(style)}</span>
+              <small>{tr("Flare 原创程序动画")}</small>
             </div>
           )}
           <span className="reference-label">
             {style.origin === "upstream"
-              ? "原项目样片参考 · 不是你的成片预览"
-              : "Flare 内置风格"}
+              ? tr("原项目样片参考 · 不是你的成片预览")
+              : tr("Flare 内置风格")}
           </span>
         </div>
         <div className="detail-body">
           <div className="detail-title">
             <div>
               <span className="detail-category">
-                {style.categoryName || "Flare 内置"}{" "}
+                {style.categoryName
+                  ? categoryName({
+                      name: style.categoryName,
+                      en: style.categoryEn,
+                    })
+                  : tr("Flare 内置")}{" "}
                 {style.num ? `/ ${String(style.num).padStart(2, "0")}` : ""}
               </span>
               <h3>{style.en}</h3>
@@ -176,47 +194,58 @@ function StyleDetail({
             <span
               className={`support-tag ${style.mode === "native" ? "native" : ""}`}
             >
-              {capability(style)}
+              {tr(capability(style))}
             </span>
           </div>
           <div className="production-contract">
             <div>
               {style.mode === "image" ? <ImagePlus /> : <Clapperboard />}
-              <strong>在 Flare 中如何制作</strong>
+              <strong>{tr("在 Flare 中如何制作")}</strong>
             </div>
             <p>
               {style.origin === "flare"
-                ? "可直接使用内置程序动画制作。"
+                ? tr("可直接使用内置程序动画制作。")
                 : style.mode === "native"
-                  ? "使用程序动画基础版，可直接预览和导出。保留基本材质与运动语言，不承诺复现原样片的所有效果。"
-                  : "使用该风格的图片辅助制作：为每个镜头导入图片或用 DreamAPI 生成，再添加运镜、字幕、配音并合成。需要全部镜头有图片后才能导出。"}
+                  ? tr(
+                      "使用程序动画基础版，可直接预览和导出。保留基本材质与运动语言，不承诺复现原样片的所有效果。",
+                    )
+                  : tr(
+                      "使用该风格的图片辅助制作：为每个镜头导入图片或用 DreamAPI 生成，再添加运镜、字幕、配音并合成。需要全部镜头有图片后才能导出。",
+                    )}
             </p>
             {style.evidence && (
               <p>
-                涉及实测或地理数据时请提供真实素材；生成图片仅作示意，不能替代测量或事实来源。
+                {tr(
+                  "涉及实测或地理数据时请提供真实素材；生成图片仅作示意，不能替代测量或事实来源。",
+                )}
               </p>
             )}
           </div>
           {style.origin === "upstream" && (
             <>
               <div className="detail-demo-title">
-                <span>参考样片</span>
-                <strong>{style.demoTitle}</strong>
+                <span>{tr("参考样片")}</span>
+                <strong>
+                  {styleName({ name: style.demoTitle, en: style.demoTitleEn })}
+                </strong>
                 <span>
                   {Math.floor(style.demoDuration / 60)}:
                   {String(Math.round(style.demoDuration % 60)).padStart(2, "0")}
                 </span>
               </div>
-              <p className="detail-description">{style.desc}</p>
+              <p className="detail-description">{styleDescription(style)}</p>
               <div className="use-list">
                 {style.uses?.map((u: string) => (
                   <span key={u}>{u}</span>
                 ))}
               </div>
               <div className="detail-source">
-                <span>来自 Lemo-Opuscar · {style.author.name}</span>
+                <span>
+                  {tr("来自 Lemo-Opuscar ·")}
+                  {style.author.name}
+                </span>
                 <a href={style.galleryUrl} target="_blank" rel="noreferrer">
-                  原项目画廊
+                  {tr("原项目画廊")}
                   <ExternalLink />
                 </a>
               </div>
@@ -224,14 +253,14 @@ function StyleDetail({
                 <header>
                   <h4>
                     <FileText />
-                    制作规范
+                    {tr("制作规范")}
                   </h4>
-                  <span>原文 · 英文</span>
+                  <span>{tr("原文 · 英文")}</span>
                 </header>
                 {!guide && !error && (
                   <p className="guide-state">
                     <LoaderCircle className="spin" />
-                    正在读取本机规范
+                    {tr("正在读取本机规范")}
                   </p>
                 )}
                 {error && (
@@ -242,7 +271,7 @@ function StyleDetail({
                       className="text-action"
                       onClick={() => setRetry((n) => n + 1)}
                     >
-                      重试
+                      {tr("重试")}
                     </button>
                   </div>
                 )}
@@ -260,7 +289,7 @@ function StyleDetail({
                     </div>
                     <details>
                       <summary>
-                        查看完整风格规范
+                        {tr("查看完整风格规范")}
                         <ChevronRight />
                       </summary>
                       <pre>{guide.markdown}</pre>
@@ -272,12 +301,12 @@ function StyleDetail({
                           await navigator.clipboard.writeText(guide.markdown);
                           setCopied(true);
                         } catch {
-                          setError("复制不可用，请打开原文");
+                          setError(tr("复制不可用，请打开原文"));
                         }
                       }}
                     >
                       {copied ? <Check /> : <Copy />}
-                      {copied ? "已复制" : "复制规范"}
+                      {copied ? tr("已复制") : tr("复制规范")}
                     </button>
                     <a
                       className="text-action"
@@ -285,28 +314,29 @@ function StyleDetail({
                       target="_blank"
                       rel="noreferrer"
                     >
-                      打开规范原文
+                      {tr("打开规范原文")}
                       <ExternalLink />
                     </a>
                   </>
                 )}
                 <p className="guide-license-note">
-                  规范保留原作者许可，不属于 Flare 的 MIT
-                  许可。样片及第三方素材的具体条款见
+                  {tr(
+                    "规范保留原作者许可，不属于 Flare 的 MIT 许可。样片及第三方素材的具体条款见",
+                  )}
                   <a
                     href={`https://github.com/lemomo-ai/lemo-opuscar/blob/${STYLE_SOURCE.commit}/LICENSE`}
                     target="_blank"
                     rel="noreferrer"
                   >
-                    原项目许可
+                    {tr("原项目许可")}
                   </a>
-                  与
+                  {tr("与")}
                   <a
                     href={`https://github.com/lemomo-ai/lemo-opuscar/blob/${STYLE_SOURCE.commit}/styles/${style.slug}/demo/CREDITS`}
                     target="_blank"
                     rel="noreferrer"
                   >
-                    素材说明
+                    {tr("素材说明")}
                   </a>
                   。
                 </p>
@@ -321,7 +351,7 @@ function StyleDetail({
                 onClose();
               }}
             >
-              用此风格新建
+              {tr("用此风格新建")}
             </button>
             <button
               className="button primary"
@@ -337,7 +367,9 @@ function StyleDetail({
               }}
             >
               {busy ? <LoaderCircle className="spin" /> : <Check />}
-              {project.style === style.id ? "当前风格" : "应用到当前短片"}
+              {project.style === style.id
+                ? tr("当前风格")
+                : tr("应用到当前短片")}
             </button>
           </div>
         </div>
@@ -354,6 +386,7 @@ export default function StyleLibrary({
   onApply: (id: Style) => Promise<void>;
   onCreate: (id: Style) => void;
 }) {
+  const { language } = usePreferences();
   const [origin, setOrigin] = useState("upstream"),
     [query, setQuery] = useState(""),
     [category, setCategory] = useState("all"),
@@ -367,9 +400,12 @@ export default function StyleLibrary({
     <main className="page-content library-page">
       <div className="library-heading">
         <div>
-          <div className="eyebrow">从视觉参考，到你的下一支短片</div>
-          <h1>风格库</h1>
-          <p>沿用原项目的 15 类、99 种风格。先看参考，再选择适合的制作方式。</p>
+          <h1>{tr("风格库")}</h1>
+          <p>
+            {tr(
+              "沿用原项目的 15 类、99 种风格。先看参考，再选择适合的制作方式。",
+            )}
+          </p>
         </div>
         <a
           className="text-action"
@@ -377,11 +413,11 @@ export default function StyleLibrary({
           target="_blank"
           rel="noreferrer"
         >
-          原项目画廊
+          {tr("原项目画廊")}
           <ArrowUpRight />
         </a>
       </div>
-      <div className="library-tabs" role="tablist" aria-label="风格来源">
+      <div className="library-tabs" role="tablist" aria-label={tr("风格来源")}>
         <button
           role="tab"
           aria-selected={origin === "upstream"}
@@ -390,7 +426,8 @@ export default function StyleLibrary({
             setCategory("all");
           }}
         >
-          原项目风格<span>99</span>
+          {tr("原项目风格")}
+          <span>99</span>
         </button>
         <button
           role="tab"
@@ -400,16 +437,17 @@ export default function StyleLibrary({
             setCategory("all");
           }}
         >
-          Flare 内置<span>3</span>
+          {tr("Flare 内置")}
+          <span>3</span>
         </button>
       </div>
       <div className="library-layout">
-        <aside className="category-nav" aria-label="风格分类">
+        <aside className="category-nav" aria-label={tr("风格分类")}>
           <button
             className={category === "all" ? "active" : ""}
             onClick={() => setCategory("all")}
           >
-            <span>全部风格</span>
+            <span>{tr("全部风格")}</span>
             <span>{base.length}</span>
           </button>
           {origin === "upstream" &&
@@ -421,7 +459,7 @@ export default function StyleLibrary({
               >
                 <span>
                   <i>{String(i + 1).padStart(2, "0")}</i>
-                  {c.name}
+                  {categoryName(c)}
                 </span>
                 <span>
                   {UPSTREAM_STYLES.filter((s) => s.category === c.id).length}
@@ -434,51 +472,55 @@ export default function StyleLibrary({
             <label className="library-search">
               <Search />
               <input
-                aria-label="搜索风格"
-                placeholder="搜索风格、用途或关键词"
+                aria-label={tr("搜索风格")}
+                placeholder={tr("搜索风格、用途或关键词")}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
               />
               {query && (
-                <button onClick={() => setQuery("")} aria-label="清除搜索">
+                <button
+                  onClick={() => setQuery("")}
+                  aria-label={tr("清除搜索")}
+                >
                   ×
                 </button>
               )}
             </label>
             <select
-              aria-label="制作方式筛选"
+              aria-label={tr("制作方式筛选")}
               value={mode}
               onChange={(e) => setMode(e.target.value)}
             >
-              <option value="all">全部制作方式</option>
-              <option value="native">程序动画基础版</option>
-              <option value="image">图片辅助</option>
+              <option value="all">{tr("全部制作方式")}</option>
+              <option value="native">{tr("程序动画基础版")}</option>
+              <option value="image">{tr("图片辅助")}</option>
             </select>
             <select
               className="mobile-category"
-              aria-label="风格分类筛选"
+              aria-label={tr("风格分类筛选")}
               value={category}
               onChange={(e) => setCategory(e.target.value)}
             >
-              <option value="all">全部分类</option>
+              <option value="all">{tr("全部分类")}</option>
               {origin === "upstream" &&
                 CATEGORIES.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.name}
+                    {categoryName(c)}
                   </option>
                 ))}
             </select>
           </div>
           <div className="library-result-count">
             <span>
-              {styles.length} 种风格
+              {styles.length}
+              {tr("种风格")}
               {category !== "all" &&
-                ` · ${CATEGORIES.find((c) => c.id === category)?.name}`}
+                ` · ${categoryName(CATEGORIES.find((c) => c.id === category))}`}
             </span>
             <span>
               {origin === "upstream"
-                ? "样片来自原项目，制作支持以标注为准"
-                : "Flare 原创程序动画"}
+                ? tr("样片来自原项目，制作支持以标注为准")
+                : tr("Flare 原创程序动画")}
             </span>
           </div>
           {styles.length ? (
@@ -488,7 +530,7 @@ export default function StyleLibrary({
                   <article className="reference-card" key={s.id}>
                     <button
                       className="reference-card-button"
-                      aria-label={`查看风格·${s.name}`}
+                      aria-label={tr("查看风格·{0}", { 0: styleName(s) })}
                       onClick={() => setDetail(s)}
                     >
                       <div className="reference-poster">
@@ -505,29 +547,31 @@ export default function StyleLibrary({
                         )}
                         <span className="reference-label">
                           {s.origin === "upstream"
-                            ? "原样片参考"
-                            : "Flare 内置"}
+                            ? tr("原样片参考")
+                            : tr("Flare 内置")}
                         </span>
                         {project.style === s.id && (
                           <span className="selected-style">
                             <Check />
-                            当前风格
+                            {tr("当前风格")}
                           </span>
                         )}
                       </div>
                       <div className="reference-card-body">
                         <div className="reference-card-title">
-                          <h2>{s.name}</h2>
+                          <h2>{styleName(s)}</h2>
                           <span className="mono">
                             {s.num ? String(s.num).padStart(2, "0") : ""}
                           </span>
                         </div>
-                        <div className="reference-en">{s.en}</div>
+                        <div className="reference-en">
+                          {language === "en" ? s.name : s.en}
+                        </div>
                         <div className="reference-card-meta">
                           <span
                             className={`support-tag ${s.mode === "native" ? "native" : ""}`}
                           >
-                            {capability(s)}
+                            {tr(capability(s))}
                           </span>
                           <ArrowUpRight />
                         </div>
@@ -541,7 +585,7 @@ export default function StyleLibrary({
                   className="button secondary show-more"
                   onClick={() => setLimit((n) => n + 18)}
                 >
-                  显示更多
+                  {tr("显示更多")}
                   <span>
                     {Math.min(limit, styles.length)} / {styles.length}
                   </span>
@@ -551,8 +595,8 @@ export default function StyleLibrary({
           ) : (
             <div className="empty-state">
               <Search />
-              <h2>没有找到匹配的风格</h2>
-              <p>试试中文名、英文名，或清除筛选条件。</p>
+              <h2>{tr("没有找到匹配的风格")}</h2>
+              <p>{tr("试试中文名、英文名，或清除筛选条件。")}</p>
               <button
                 className="button secondary"
                 onClick={() => {
@@ -561,21 +605,22 @@ export default function StyleLibrary({
                   setCategory("all");
                 }}
               >
-                清除筛选
+                {tr("清除筛选")}
               </button>
             </div>
           )}
         </div>
       </div>
       <div className="library-attribution">
-        Lemo-Opuscar by Lemomo (LemoLab) · 99 种原项目风格，8
-        种程序动画基础版，91 种图片辅助制作。
+        {tr(
+          "Lemo-Opuscar by Lemomo (LemoLab) · 99 种原项目风格，8 种程序动画基础版，91 种图片辅助制作。",
+        )}
         <a
           href={`https://github.com/lemomo-ai/lemo-opuscar/tree/${STYLE_SOURCE.commit}`}
           target="_blank"
           rel="noreferrer"
         >
-          查看固定版本
+          {tr("查看固定版本")}
           <ExternalLink />
         </a>
       </div>

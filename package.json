@@ -17,10 +17,13 @@
     "format": "prettier --write src server shared tests tools *.json *.js *.html *.md docs/*.md",
     "format:check": "prettier --check src server shared tests tools *.json *.js *.html *.md docs/*.md",
     "styles:sync": "node tools/sync-styles.js",
-    "test:styles": "node tests/styles-e2e.js"
+    "test:styles": "node tests/styles-e2e.js",
+    "test:ui": "node tests/ui-e2e.js"
   },
   "dependencies": {
-    "@fontsource-variable/dm-sans": "^5.3.0",
+    "@fontsource-variable/ibm-plex-sans": "^5.3.0",
+    "@fontsource-variable/noto-sans-sc": "^5.3.1",
+    "@fontsource/ibm-plex-mono": "^5.3.0",
     "express": "^5.1.0",
     "lucide-react": "^0.468.0",
     "playwright-core": "1.65.1",

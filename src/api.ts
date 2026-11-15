@@ -1,3 +1,4 @@
+import { t as tr, errorText } from "./preferences";
 export async function api<T = any>(
   url: string,
   options: RequestInit = {},
@@ -10,9 +11,9 @@ export async function api<T = any>(
   try {
     d = await r.json();
   } catch {
-    throw Error("无法读取本地服务的响应");
+    throw Error(tr("无法读取本地服务的响应"));
   }
-  if (!r.ok) throw Error(d.error || "操作未完成");
+  if (!r.ok) throw Error(errorText(d.error || tr("操作未完成")));
   return d;
 }
 export const send = (method: string, body?: unknown) => ({

@@ -1,3 +1,10 @@
+import {
+  t as tr,
+  usePreferences,
+  setPreferences,
+  styleName,
+  errorText,
+} from "./preferences";
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { createRoot } from "react-dom/client";
 import {
@@ -37,6 +44,10 @@ import {
   Keyboard,
   ExternalLink,
   SlidersHorizontal,
+  Sun,
+  Moon,
+  Monitor,
+  Languages,
 } from "lucide-react";
 import {
   STYLES,
@@ -57,7 +68,9 @@ import type {
   Style,
   Aspect,
 } from "./types";
-import "@fontsource-variable/dm-sans";
+import "@fontsource-variable/ibm-plex-sans";
+import "@fontsource-variable/noto-sans-sc";
+import "@fontsource/ibm-plex-mono/400.css";
 import "./styles.css";
 import Modal from "./Modal";
 import StyleLibrary, { StylePicker } from "./StyleLibrary";
@@ -99,6 +112,7 @@ function Thumbnail({
   );
 }
 function App() {
+  const preferences = usePreferences();
   const [projects, setProjects] = useState<Project[]>([]),
     [id, setId] = useState<string | null>(null),
     [view, setView] = useState("studio"),
@@ -331,7 +345,7 @@ function App() {
     const p = await update({
       scenes: project.scenes.map((s, i) => (i === selected ? draft : s)),
     });
-    if (p) toast("镜头已保存，预览已更新");
+    if (p) toast(tr("镜头已保存，预览已更新"));
     return p;
   }
   async function chooseScene(i: number) {
@@ -367,9 +381,9 @@ function App() {
     if (!base) return;
     const s: Scene = {
       id: crypto.randomUUID(),
-      title: "新的镜头",
-      narration: "在这里写下旁白。",
-      visual: "描述你希望出现的画面。",
+      title: tr("新的镜头"),
+      narration: tr("在这里写下旁白。"),
+      visual: tr("描述你希望出现的画面。"),
       art: "landscape",
       duration: 5,
       accent: "#df6a44",
@@ -395,7 +409,7 @@ function App() {
           send("POST", { revision: project.revision }),
         ),
       );
-      toast("已撤销此镜头的上一次修改");
+      toast(tr("已撤销此镜头的上一次修改"));
     } catch (e) {
       toast((e as Error).message, true);
     }
@@ -403,7 +417,7 @@ function App() {
   async function uploadImage(file: File) {
     if (!file) return;
     try {
-      if (file.size > 10 * 1024 * 1024) throw Error("图片不能超过 10 MB");
+      if (file.size > 10 * 1024 * 1024) throw Error(tr("图片不能超过 10 MB"));
       const data = await new Promise<string>((resolve, reject) => {
         const r = new FileReader();
         r.onload = () => resolve(String(r.result).split(",")[1]);
@@ -412,14 +426,14 @@ function App() {
       });
       const { url } = await api("/api/assets", send("POST", { data }));
       setDraft((d) => (d ? { ...d, image: url } : d));
-      toast("图片已导入，应用修改后进入成片");
+      toast(tr("图片已导入，应用修改后进入成片"));
     } catch (e) {
       toast((e as Error).message, true);
     }
   }
   async function importProject(file: File) {
     try {
-      if (file.size > 1024 * 1024) throw Error("项目文件不能超过 1 MB");
+      if (file.size > 1024 * 1024) throw Error(tr("项目文件不能超过 1 MB"));
       const data = JSON.parse(await file.text());
       const p = await api<Project>("/api/projects/import", send("POST", data));
       putProject(p);
@@ -427,9 +441,9 @@ function App() {
       setSelected(0);
       setView("studio");
       seek(0.8);
-      toast("项目已导入");
+      toast(tr("项目已导入"));
     } catch (e) {
-      toast("导入失败：" + (e as Error).message, true);
+      toast(tr("导入失败：") + (e as Error).message, true);
     }
   }
   async function generate() {
@@ -445,8 +459,8 @@ function App() {
       setTasks((old) => [t, ...old.filter((x) => x.id !== t.id)]);
       toast(
         kind === "image"
-          ? "画面任务已提交，约需 30 秒至 1 分钟"
-          : "配音任务已提交，约需 10–30 秒",
+          ? tr("画面任务已提交，约需 30 秒至 1 分钟")
+          : tr("配音任务已提交，约需 10–30 秒"),
       );
     } catch (e) {
       toast((e as Error).message, true);
@@ -456,7 +470,7 @@ function App() {
     return (
       <div className="loading-screen">
         <Aperture />
-        <span>正在打开 Flare</span>
+        <span>{tr("正在打开 Flare")}</span>
       </div>
     );
   const projectJobs = jobs.filter((j) => j.projectId === project?.id),
@@ -472,7 +486,7 @@ function App() {
         <button
           className="brand"
           onClick={() => setView("studio")}
-          aria-label="Flare 创作台"
+          aria-label={tr("Flare 创作台")}
         >
           <Aperture className="brand-mark" />
           <span>
@@ -480,7 +494,8 @@ function App() {
           </span>
         </button>
         <div className="workspace-label">
-          个人工作空间 <span>本地</span>
+          {tr("个人工作空间")}
+          <span>{tr("本地")}</span>
         </div>
         <button
           className="new-project"
@@ -490,13 +505,14 @@ function App() {
           }}
         >
           <Plus />
-          新建短片 <kbd>N</kbd>
+          {tr("新建短片")}
+          <kbd>N</kbd>
         </button>
-        <nav aria-label="主导航">
+        <nav aria-label={tr("主导航")}>
           {[
-            { id: "studio", icon: Clapperboard, label: "创作台" },
-            { id: "styles", icon: Layers3, label: "风格库" },
-            { id: "exports", icon: Download, label: "导出记录" },
+            { id: "studio", icon: Clapperboard, label: tr("创作台") },
+            { id: "styles", icon: Layers3, label: tr("风格库") },
+            { id: "exports", icon: Download, label: tr("导出记录") },
           ].map((item) => (
             <button
               key={item.id}
@@ -512,10 +528,10 @@ function App() {
           ))}
         </nav>
         <div className="section-heading">
-          <span>最近项目</span>
+          <span>{tr("最近项目")}</span>
           <button
             className="small-icon"
-            aria-label="导入项目"
+            aria-label={tr("导入项目")}
             onClick={() => importInput.current?.click()}
           >
             <Upload />
@@ -543,8 +559,8 @@ function App() {
             />
             <span>
               {settings?.deepseekConfigured
-                ? "DeepSeek 已配置"
-                : "本地制作模式"}
+                ? tr("DeepSeek 已配置")
+                : tr("本地制作模式")}
             </span>
             <Settings2 />
           </button>
@@ -552,7 +568,7 @@ function App() {
             <span>Flare v0.1</span>
             <button
               onClick={() => setModal("help")}
-              aria-label="快捷键和使用说明"
+              aria-label={tr("快捷键和使用说明")}
             >
               <Keyboard />
             </button>
@@ -562,17 +578,68 @@ function App() {
       <div className="main-shell">
         <header className="topbar">
           <div className="breadcrumb">
-            <span>工作空间</span>
+            <span>{tr("工作空间")}</span>
             <ChevronRight />
             <span>
               {view === "studio"
-                ? "创作台"
+                ? tr("创作台")
                 : view === "styles"
-                  ? "风格库"
-                  : "导出记录"}
+                  ? tr("风格库")
+                  : tr("导出记录")}
             </span>
           </div>
           <div className="top-actions">
+            <div className="display-preferences">
+              <label className="preference-control">
+                <Languages aria-hidden="true" />
+                <span className="sr-only">
+                  {preferences.language === "en"
+                    ? "Interface language"
+                    : "界面语言"}
+                </span>
+                <select
+                  aria-label="Language / 语言"
+                  value={preferences.language}
+                  onChange={(e) =>
+                    setPreferences({ language: e.target.value as "zh" | "en" })
+                  }
+                >
+                  <option value="zh">中文</option>
+                  <option value="en">English</option>
+                </select>
+              </label>
+              <label className="preference-control appearance-control">
+                {preferences.appearance === "dark" ? (
+                  <Moon aria-hidden="true" />
+                ) : preferences.appearance === "light" ? (
+                  <Sun aria-hidden="true" />
+                ) : (
+                  <Monitor aria-hidden="true" />
+                )}
+                <span className="sr-only">
+                  {preferences.language === "en" ? "Appearance" : "外观"}
+                </span>
+                <select
+                  aria-label="Appearance / 外观"
+                  value={preferences.appearance}
+                  onChange={(e) =>
+                    setPreferences({
+                      appearance: e.target.value as "light" | "dark" | "system",
+                    })
+                  }
+                >
+                  <option value="system">
+                    {preferences.language === "en" ? "System" : "跟随系统"}
+                  </option>
+                  <option value="light">
+                    {preferences.language === "en" ? "Light" : "白天"}
+                  </option>
+                  <option value="dark">
+                    {preferences.language === "en" ? "Dark" : "黑夜"}
+                  </option>
+                </select>
+              </label>
+            </div>
             <span className="save-state">
               {saving ? (
                 <LoaderCircle className="spin" />
@@ -582,14 +649,14 @@ function App() {
                 <Check />
               )}
               {saving
-                ? "正在保存"
+                ? tr("正在保存")
                 : dirty
-                  ? "镜头修改待应用"
-                  : "更改保存在本机"}
+                  ? tr("镜头修改待应用")
+                  : tr("更改保存在本机")}
             </span>
             <button
               className="icon-button"
-              aria-label="设置"
+              aria-label={tr("设置")}
               onClick={() => setModal("settings")}
             >
               <Settings2 />
@@ -600,20 +667,21 @@ function App() {
           <main className="studio">
             <div className="project-heading">
               <div>
-                <div className="eyebrow">你的下一个故事，从这里开始</div>
                 <h1>{project.title}</h1>
                 <div className="project-meta">
+                  <span>{styleName(getStyle(project.style))}</span>
+                  <i />{" "}
                   <span>
-                    {STYLES.find((s) => s.id === project.style)?.name}
+                    {project.scenes.length}
+                    {tr("个镜头")}
                   </span>
-                  <i /> <span>{project.scenes.length} 个镜头</span>
                   <i />
                   <span>{timecode(duration)}</span>
                   <i />
                   <span>
                     {project.source === "deepseek"
-                      ? "DeepSeek 分镜"
-                      : "本地分镜"}
+                      ? tr("DeepSeek 分镜")
+                      : tr("本地分镜")}
                   </span>
                 </div>
               </div>
@@ -632,15 +700,15 @@ function App() {
                       setSelected(0);
                       setPlaying(false);
                       seek(0.8);
-                      toast("已创建项目副本");
+                      toast(tr("已创建项目副本"));
                     } catch (e) {
                       toast((e as Error).message, true);
                     }
                   }}
-                  title="复制项目"
+                  title={tr("复制项目")}
                 >
                   <Copy />
-                  <span>副本</span>
+                  <span>{tr("副本")}</span>
                 </button>
                 <button
                   className="button primary"
@@ -651,7 +719,7 @@ function App() {
                   }}
                 >
                   <Download />
-                  导出短片
+                  {tr("导出短片")}
                 </button>
               </div>
             </div>
@@ -662,13 +730,13 @@ function App() {
                 <div className="viewer-toolbar">
                   <span>
                     <span className="little-square" />
-                    影片预览
+                    {tr("影片预览")}
                   </span>
                   <div>
                     <label className="inline-select">
-                      <span className="sr-only">画幅</span>
+                      <span className="sr-only">{tr("画幅")}</span>
                       <select
-                        aria-label="画幅"
+                        aria-label={tr("画幅")}
                         value={project.aspect}
                         disabled={saving}
                         onChange={(e) => {
@@ -688,7 +756,7 @@ function App() {
                     </label>
                     <button
                       className={`small-icon ${inspector ? "selected" : ""}`}
-                      aria-label="切换镜头面板"
+                      aria-label={tr("切换镜头面板")}
                       onClick={() => setInspector((v) => !v)}
                     >
                       <PanelRight />
@@ -699,8 +767,11 @@ function App() {
                   <div className="production-note">
                     <ImagePlus />
                     <span>
-                      图片辅助制作 · {missingShotImages(project).length}{" "}
-                      个镜头还需要图片。请逐镜头导入或生成素材，补齐后才能导出。
+                      {tr("图片辅助制作 ·")}
+                      {missingShotImages(project).length}{" "}
+                      {tr(
+                        "个镜头还需要图片。请逐镜头导入或生成素材，补齐后才能导出。",
+                      )}
                     </span>
                   </div>
                 )}
@@ -708,7 +779,7 @@ function App() {
                 <div className="transport">
                   <button
                     className="icon-button"
-                    aria-label="回到开头"
+                    aria-label={tr("回到开头")}
                     onClick={() => {
                       setPlaying(false);
                       seek(0);
@@ -718,7 +789,7 @@ function App() {
                   </button>
                   <button
                     className="play-button"
-                    aria-label={playing ? "暂停" : "播放"}
+                    aria-label={playing ? tr("暂停") : tr("播放")}
                     onClick={togglePlay}
                   >
                     {playing ? <Pause /> : <Play />}
@@ -729,7 +800,7 @@ function App() {
                   </span>
                   <input
                     className="scrubber"
-                    aria-label="播放位置"
+                    aria-label={tr("播放位置")}
                     type="range"
                     min="0"
                     max={duration}
@@ -739,7 +810,7 @@ function App() {
                   />
                   <button
                     className="icon-button"
-                    aria-label={sound ? "静音" : "打开声音"}
+                    aria-label={sound ? tr("静音") : tr("打开声音")}
                     onClick={() => setSound((v) => !v)}
                   >
                     {sound ? <Volume2 /> : <VolumeX />}
@@ -750,7 +821,7 @@ function App() {
                   <span>{current?.scene.title}</span>
                   <button
                     className="score-toggle"
-                    aria-label="切换背景配乐"
+                    aria-label={tr("切换背景配乐")}
                     aria-pressed={project.music}
                     onClick={async () => {
                       const base = dirty ? await saveDraft() : project;
@@ -758,10 +829,12 @@ function App() {
                     }}
                   >
                     {project.music ? <Volume2 /> : <VolumeX />}
-                    {project.music ? "原创程序配乐" : "无背景音乐"} ·{" "}
+                    {project.music
+                      ? tr("原创程序配乐")
+                      : tr("无背景音乐")} ·{" "}
                     {project.scenes.some((s) => s.audio)
-                      ? "含配音"
-                      : "字幕叙事"}
+                      ? tr("含配音")
+                      : tr("字幕叙事")}
                   </button>
                 </div>
               </section>
@@ -770,7 +843,7 @@ function App() {
                   <div className="inspector-head">
                     <div>
                       <SlidersHorizontal />
-                      <h2>镜头设置</h2>
+                      <h2>{tr("镜头设置")}</h2>
                     </div>
                     <span className="mono">
                       {String(selected + 1).padStart(2, "0")}
@@ -779,9 +852,10 @@ function App() {
                   <div className="inspector-scroll">
                     <div className="field-row">
                       <label>
-                        时长 <span>秒</span>
+                        {tr("时长")}
+                        <span>{tr("秒")}</span>
                         <input
-                          aria-label="镜头时长"
+                          aria-label={tr("镜头时长")}
                           type="number"
                           min="1"
                           max="30"
@@ -796,9 +870,9 @@ function App() {
                         />
                       </label>
                       <label>
-                        强调色
+                        {tr("强调色")}
                         <input
-                          aria-label="强调色"
+                          aria-label={tr("强调色")}
                           type="color"
                           value={draft.accent}
                           onChange={(e) =>
@@ -808,9 +882,9 @@ function App() {
                       </label>
                     </div>
                     <label className="field">
-                      镜头标题
+                      {tr("镜头标题")}
                       <input
-                        aria-label="镜头标题"
+                        aria-label={tr("镜头标题")}
                         value={draft.title}
                         maxLength={40}
                         onChange={(e) =>
@@ -819,9 +893,9 @@ function App() {
                       />
                     </label>
                     <label className="field">
-                      旁白与字幕
+                      {tr("旁白与字幕")}
                       <textarea
-                        aria-label="旁白与字幕"
+                        aria-label={tr("旁白与字幕")}
                         rows={3}
                         maxLength={300}
                         value={draft.narration}
@@ -835,14 +909,14 @@ function App() {
                       />
                       <span className="field-hint">
                         {draft.narration.length / draft.duration > 7
-                          ? "字幕较密，建议延长镜头或精简旁白"
-                          : "没有配音时，旁白以字幕呈现"}
+                          ? tr("字幕较密，建议延长镜头或精简旁白")
+                          : tr("没有配音时，旁白以字幕呈现")}
                       </span>
                     </label>
                     <label className="field">
-                      画面描述
+                      {tr("画面描述")}
                       <textarea
-                        aria-label="画面描述"
+                        aria-label={tr("画面描述")}
                         rows={3}
                         maxLength={1200}
                         value={draft.visual}
@@ -852,9 +926,9 @@ function App() {
                       />
                     </label>
                     <label className="field">
-                      动画组件
+                      {tr("动画组件")}
                       <select
-                        aria-label="动画组件"
+                        aria-label={tr("动画组件")}
                         value={draft.art}
                         onChange={(e) =>
                           setDraft({
@@ -864,12 +938,12 @@ function App() {
                         }
                       >
                         {[
-                          ["landscape", "山野与风景"],
-                          ["botanical", "植物与生长"],
-                          ["coffee", "物件与生活"],
-                          ["orbit", "轨道与变化"],
-                          ["city", "城市与建筑"],
-                          ["chart", "数据与比较"],
+                          ["landscape", tr("山野与风景")],
+                          ["botanical", tr("植物与生长")],
+                          ["coffee", tr("物件与生活")],
+                          ["orbit", tr("轨道与变化")],
+                          ["city", tr("城市与建筑")],
+                          ["chart", tr("数据与比较")],
                         ].map(([v, l]) => (
                           <option value={v} key={v}>
                             {l}
@@ -879,12 +953,12 @@ function App() {
                     </label>
                     <div className="inspector-divider" />
                     <label className="field">
-                      用一句话修改这个镜头
+                      {tr("用一句话修改这个镜头")}
                       <textarea
-                        aria-label="镜头修改指令"
+                        aria-label={tr("镜头修改指令")}
                         rows={2}
                         value={aiInstruction}
-                        placeholder="例如：旁白更简短，画面更温暖"
+                        placeholder={tr("例如：旁白更简短，画面更温暖")}
                         onChange={(e) => setAiInstruction(e.target.value)}
                       />
                     </label>
@@ -905,7 +979,7 @@ function App() {
                           );
                           putProject(p);
                           setAiInstruction("");
-                          toast("已修改当前镜头，其他镜头保持原样");
+                          toast(tr("已修改当前镜头，其他镜头保持原样"));
                         } catch (e) {
                           toast((e as Error).message, true);
                         } finally {
@@ -918,12 +992,12 @@ function App() {
                       ) : (
                         <SlidersHorizontal />
                       )}
-                      {aiBusy ? "正在修改" : "用 DeepSeek 修改"}
+                      {aiBusy ? tr("正在修改") : tr("用 DeepSeek 修改")}
                     </button>
                     <div className="inspector-divider" />
                     <div className="section-heading no-margin">
-                      <span>镜头素材</span>
-                      <span className="meta-text">可选</span>
+                      <span>{tr("镜头素材")}</span>
+                      <span className="meta-text">{tr("可选")}</span>
                     </div>
                     <div className="media-actions">
                       <button
@@ -931,7 +1005,7 @@ function App() {
                         onClick={() => fileInput.current?.click()}
                       >
                         <Upload />
-                        导入图片
+                        {tr("导入图片")}
                       </button>
                       <button
                         className="button secondary"
@@ -942,7 +1016,7 @@ function App() {
                         }
                       >
                         <ImagePlus />
-                        生成画面
+                        {tr("生成画面")}
                       </button>
                     </div>
                     <button
@@ -954,16 +1028,18 @@ function App() {
                       }
                     >
                       <Volume2 />
-                      {draft.audio ? "重新生成配音" : "用 DreamAPI 生成配音"}
+                      {draft.audio
+                        ? tr("重新生成配音")
+                        : tr("用 DreamAPI 生成配音")}
                       <ArrowUpRight />
                     </button>
                     {draft.image && (
                       <div className="attached-asset">
-                        <img src={draft.image} alt="当前镜头素材" />
-                        <span>已附加图片</span>
+                        <img src={draft.image} alt={tr("当前镜头素材")} />
+                        <span>{tr("已附加图片")}</span>
                         <button
                           className="small-icon"
-                          aria-label="移除图片"
+                          aria-label={tr("移除图片")}
                           onClick={() =>
                             setDraft({ ...draft, image: undefined })
                           }
@@ -977,7 +1053,7 @@ function App() {
                         <audio controls src={draft.audio} />
                         <button
                           className="small-icon"
-                          aria-label="移除配音"
+                          aria-label={tr("移除配音")}
                           onClick={() =>
                             setDraft({ ...draft, audio: undefined })
                           }
@@ -997,23 +1073,23 @@ function App() {
                           <Film />
                         )}
                         <span>
-                          {t.kind === "image" ? "画面" : "配音"}：
+                          {t.kind === "image" ? tr("画面") : tr("配音")}：
                           {
                             (
                               {
-                                running: "生成中",
-                                submitting: "提交中",
+                                running: tr("生成中"),
+                                submitting: tr("提交中"),
                                 done: t.applied
-                                  ? "已应用"
-                                  : "已保留，镜头已更改",
-                                paused: "等待恢复",
-                                uncertain: "请到控制台核对",
-                                failed: "生成失败",
-                                acknowledged: "已核对，可重新生成",
+                                  ? tr("已应用")
+                                  : tr("已保留，镜头已更改"),
+                                paused: tr("等待恢复"),
+                                uncertain: tr("请到控制台核对"),
+                                failed: tr("生成失败"),
+                                acknowledged: tr("已核对，可重新生成"),
                               } as any
                             )[t.status]
                           }
-                          {t.error && <small>{t.error}</small>}
+                          {t.error && <small>{errorText(t.error)}</small>}
                           {t.asset && !t.applied && (
                             <button
                               className="text-action retained-asset"
@@ -1028,10 +1104,10 @@ function App() {
                                       }
                                     : d,
                                 );
-                                toast("素材已选入镜头，应用修改后生效");
+                                toast(tr("素材已选入镜头，应用修改后生效"));
                               }}
                             >
-                              使用保留素材
+                              {tr("使用保留素材")}
                               <ArrowUpRight />
                             </button>
                           )}
@@ -1046,25 +1122,25 @@ function App() {
                                   }),
                                 )
                                   .then(() =>
-                                    toast("已标记核对完成，可再次确认生成"),
+                                    toast(tr("已标记核对完成，可再次确认生成")),
                                   )
                                   .catch((e) => toast(e.message, true))
                               }
                             >
-                              我已核对控制台
+                              {tr("我已核对控制台")}
                             </button>
                           )}
                         </span>
                         {t.status === "paused" && (
                           <button
                             className="small-icon"
-                            aria-label="恢复查询"
+                            aria-label={tr("恢复查询")}
                             onClick={() =>
                               api(
                                 `/api/media-tasks/${t.id}/resume`,
                                 send("POST"),
                               )
-                                .then(() => toast("已恢复原任务查询"))
+                                .then(() => toast(tr("已恢复原任务查询")))
                                 .catch((e) => toast(e.message, true))
                             }
                           >
@@ -1077,7 +1153,7 @@ function App() {
                   <div className="inspector-bottom">
                     <button
                       className="icon-button"
-                      aria-label="撤销镜头修改"
+                      aria-label={tr("撤销镜头修改")}
                       disabled={saving || !project.canUndo?.includes(scene.id)}
                       onClick={undo}
                     >
@@ -1089,7 +1165,7 @@ function App() {
                       onClick={saveDraft}
                     >
                       {saving ? <LoaderCircle className="spin" /> : <Check />}
-                      应用修改
+                      {tr("应用修改")}
                     </button>
                   </div>
                 </aside>
@@ -1098,15 +1174,17 @@ function App() {
             <section className="storyboard">
               <div className="storyboard-heading">
                 <div>
-                  <h2>分镜序列</h2>
+                  <h2>{tr("分镜序列")}</h2>
                   <span>
-                    {project.scenes.length} 个镜头 · {timecode(duration)}
+                    {project.scenes.length}
+                    {tr("个镜头 ·")}
+                    {timecode(duration)}
                   </span>
                 </div>
                 <div>
                   <button
                     className="small-icon"
-                    aria-label="镜头前移"
+                    aria-label={tr("镜头前移")}
                     disabled={selected === 0 || saving}
                     onClick={() => moveScene(-1)}
                   >
@@ -1114,7 +1192,7 @@ function App() {
                   </button>
                   <button
                     className="small-icon"
-                    aria-label="镜头后移"
+                    aria-label={tr("镜头后移")}
                     disabled={selected === project.scenes.length - 1 || saving}
                     onClick={() => moveScene(1)}
                   >
@@ -1122,7 +1200,7 @@ function App() {
                   </button>
                   <button
                     className="small-icon"
-                    aria-label="删除镜头"
+                    aria-label={tr("删除镜头")}
                     disabled={project.scenes.length <= 1 || saving}
                     onClick={deleteScene}
                   >
@@ -1135,7 +1213,7 @@ function App() {
                     onClick={addScene}
                   >
                     <Plus />
-                    添加镜头
+                    {tr("添加镜头")}
                   </button>
                 </div>
               </div>
@@ -1149,7 +1227,10 @@ function App() {
                       key={s.id}
                       className={`shot ${selected === i ? "active" : ""}`}
                       onClick={() => chooseScene(i)}
-                      aria-label={`选择镜头 ${i + 1}：${s.title}`}
+                      aria-label={tr("选择镜头 {0}：{1}", {
+                        0: i + 1,
+                        1: s.title,
+                      })}
                       aria-pressed={selected === i}
                     >
                       <div className="shot-frame">
@@ -1174,10 +1255,11 @@ function App() {
             <footer className="studio-footer">
               <span>
                 <span className="status-dot connected" />
-                项目保存在这台电脑
+                {tr("项目保存在这台电脑")}
               </span>
               <button className="text-action" onClick={() => setModal("help")}>
-                快捷键 <kbd>?</kbd>
+                {tr("快捷键")}
+                <kbd>?</kbd>
               </button>
             </footer>
           </main>
@@ -1189,7 +1271,7 @@ function App() {
               const base = dirty ? await saveDraft() : project;
               if (base && (await update({ style: id }, base))) {
                 setView("studio");
-                toast("风格已应用，分镜内容保持原样");
+                toast(tr("风格已应用，分镜内容保持原样"));
               }
             }}
             onCreate={(id) => {
@@ -1201,22 +1283,23 @@ function App() {
         {view === "exports" && (
           <main className="page-content">
             <div className="page-heading">
-              <div className="eyebrow">从创作台，到屏幕</div>
-              <h1>导出记录</h1>
+              <h1>{tr("导出记录")}</h1>
               <p>
-                每次导出都会保存当时的分镜版本，后续修改不会影响已导出的成片。
+                {tr(
+                  "每次导出都会保存当时的分镜版本，后续修改不会影响已导出的成片。",
+                )}
               </p>
             </div>
             {jobs.length === 0 ? (
               <div className="empty-state">
                 <Download />
-                <h2>还没有导出的短片</h2>
-                <p>回到创作台，完成预览后导出第一支影片。</p>
+                <h2>{tr("还没有导出的短片")}</h2>
+                <p>{tr("回到创作台，完成预览后导出第一支影片。")}</p>
                 <button
                   className="button primary"
                   onClick={() => setView("studio")}
                 >
-                  回到创作台
+                  {tr("回到创作台")}
                 </button>
               </div>
             ) : (
@@ -1227,7 +1310,7 @@ function App() {
                     job={j}
                     onCancel={() =>
                       api(`/api/exports/${j.id}/cancel`, send("POST"))
-                        .then(() => toast("已取消导出"))
+                        .then(() => toast(tr("已取消导出")))
                         .catch((e) => toast(e.message, true))
                     }
                     onRetry={async () => {
@@ -1240,7 +1323,7 @@ function App() {
                           }),
                         );
                         setJobs((old) => [r, ...old]);
-                        toast("已用项目当前版本重新导出");
+                        toast(tr("已用项目当前版本重新导出"));
                       } catch (e) {
                         toast((e as Error).message, true);
                       }
@@ -1254,7 +1337,7 @@ function App() {
       </div>
       {!project && !loading && (
         <div className="empty-state">
-          <h1>开始你的第一支短片</h1>
+          <h1>{tr("开始你的第一支短片")}</h1>
           <button
             className="button primary"
             onClick={() => {
@@ -1262,7 +1345,7 @@ function App() {
               setModal("new");
             }}
           >
-            新建短片
+            {tr("新建短片")}
           </button>
         </div>
       )}
@@ -1293,10 +1376,10 @@ function App() {
           className={`toast ${notice.error ? "error" : ""}`}
         >
           {notice.error ? <AlertCircle /> : <CheckCircle2 />}
-          <span>{notice.text}</span>
+          <span>{errorText(notice.text)}</span>
           <button
             className="small-icon"
-            aria-label="关闭提示"
+            aria-label={tr("关闭提示")}
             onClick={() => setNotice(null)}
           >
             <X />
@@ -1316,7 +1399,7 @@ function App() {
             setPlaying(false);
             setView("studio");
             closeModal();
-            toast("分镜已就绪，可以开始预览和修改");
+            toast(tr("分镜已就绪，可以开始预览和修改"));
           }}
         />
       )}
@@ -1326,7 +1409,7 @@ function App() {
           onClose={closeModal}
           onSave={(s) => {
             setSettings(s);
-            toast("设置已保存");
+            toast(tr("设置已保存"));
           }}
         />
       )}
@@ -1341,46 +1424,48 @@ function App() {
               send("POST", { quality, requestKey: crypto.randomUUID() }),
             );
             setJobs((old) => [j, ...old]);
-            toast("已加入导出队列，你可以继续编辑");
+            toast(tr("已加入导出队列，你可以继续编辑"));
           }}
           onCancel={(j) =>
             api(`/api/exports/${j.id}/cancel`, send("POST")).then(() =>
-              toast("已取消导出"),
+              toast(tr("已取消导出")),
             )
           }
         />
       )}
       {modal === "help" && (
-        <Modal title="让第一支短片发生" onClose={closeModal}>
+        <Modal title={tr("快捷键和使用说明")} onClose={closeModal}>
           <div className="modal-body help-body">
             <p>
-              写下主题或剧本，选择风格，生成分镜。在创作台修改每个镜头，确认预览后导出。
+              {tr(
+                "写下主题或剧本，选择风格，生成分镜。在创作台修改每个镜头，确认预览后导出。",
+              )}
             </p>
             <dl>
-              <dt>播放 / 暂停</dt>
+              <dt>{tr("播放 / 暂停")}</dt>
               <dd>
                 <kbd>Space</kbd>
               </dd>
-              <dt>前后移动一秒</dt>
+              <dt>{tr("前后移动一秒")}</dt>
               <dd>
                 <kbd>←</kbd> <kbd>→</kbd>
               </dd>
-              <dt>关闭窗口</dt>
+              <dt>{tr("关闭窗口")}</dt>
               <dd>
                 <kbd>Esc</kbd>
               </dd>
             </dl>
-            <h3>本地模式与 AI 模式</h3>
+            <h3>{tr("本地模式与 AI 模式")}</h3>
             <p>
-              本地模式按你的原文分段并匹配动画组件，不会自动理解或改写剧本。配置
-              DeepSeek 后，可以使用 AI 规划分镜。DreamAPI
-              图片与配音仅在你确认后付费生成。
+              {tr(
+                "本地模式按你的原文分段并匹配动画组件，不会自动理解或改写剧本。配置 DeepSeek 后，可以使用 AI 规划分镜。DreamAPI 图片与配音仅在你确认后付费生成。",
+              )}
             </p>
-            <h3>关于导出</h3>
+            <h3>{tr("关于导出")}</h3>
             <p>
-              支持 720p / 1080p、24
-              fps。配音长于镜头时会提示你延长镜头，避免截断。项目文件只包含分镜，不包含本地素材文件；带素材迁移时需同时复制
-              .flare/media 目录。
+              {tr(
+                "支持 720p / 1080p、24 fps。配音长于镜头时会提示你延长镜头，避免截断。项目文件只包含分镜，不包含本地素材文件；带素材迁移时需同时复制 .flare/media 目录。",
+              )}
             </p>
             <a
               className="text-action"
@@ -1388,37 +1473,45 @@ function App() {
               download
             >
               <Download />
-              下载当前项目文件
+              {tr("下载当前项目文件")}
             </a>
           </div>
         </Modal>
       )}
       {paid && (
         <Modal
-          title={paid === "image" ? "生成这个镜头的画面" : "生成这个镜头的配音"}
+          title={
+            paid === "image"
+              ? tr("生成这个镜头的画面")
+              : tr("生成这个镜头的配音")
+          }
           onClose={() => setPaid(null)}
         >
           <div className="modal-body">
             <p>
-              将把当前镜头的{paid === "image" ? "画面描述" : "旁白"}发送给
-              DreamAPI，使用你的账户额度。本次只生成这一个镜头的素材。
+              {tr("将把当前镜头的")}
+              {paid === "image" ? tr("画面描述") : tr("旁白")}
+              {tr(
+                "发送给 DreamAPI，使用你的账户额度。本次只生成这一个镜头的素材。",
+              )}
             </p>
             <div className="quote-block">
               {paid === "image" ? draft?.visual : draft?.narration}
             </div>
             <p className="field-hint">
-              预计{paid === "image" ? "约 30 秒至 1 分钟" : "约 10–30 秒"}
-              。具体费用以 DreamAPI 控制台为准。
+              {tr("预计")}
+              {paid === "image" ? tr("约 30 秒至 1 分钟") : tr("约 10–30 秒")}
+              {tr("。具体费用以 DreamAPI 控制台为准。")}
             </p>
             <div className="modal-actions">
               <button
                 className="button secondary"
                 onClick={() => setPaid(null)}
               >
-                取消
+                {tr("取消")}
               </button>
               <button className="button primary" onClick={generate}>
-                确认付费生成
+                {tr("确认付费生成")}
                 <ArrowUpRight />
               </button>
             </div>
@@ -1447,11 +1540,13 @@ function FilmViewer({ project, time }: { project: Project; time: number }) {
   }, [project, time, ready, w, h]);
   return (
     <div className={`viewer-stage aspect-${project.aspect.replace(":", "-")}`}>
-      <canvas ref={ref} width={w} height={h} aria-label="影片画面" role="img" />
-      <span className="viewer-corner tl" />
-      <span className="viewer-corner tr" />
-      <span className="viewer-corner bl" />
-      <span className="viewer-corner br" />
+      <canvas
+        ref={ref}
+        width={w}
+        height={h}
+        aria-label={tr("影片画面")}
+        role="img"
+      />
     </div>
   );
 }
@@ -1493,7 +1588,7 @@ function NewProjectModal({
   }
   return (
     <Modal
-      title="新的故事"
+      title={tr("新的故事")}
       wide
       onClose={() => {
         if (!busy) onClose();
@@ -1505,29 +1600,29 @@ function NewProjectModal({
             <Clapperboard />
           </span>
           <div>
-            <h3>先有一个想讲的故事</h3>
-            <p>可以是一段剧本，也可以是一个具体的主题。</p>
+            <h3>{tr("新的故事")}</h3>
+            <p>{tr("可以是一段剧本，也可以是一个具体的主题。")}</p>
           </div>
         </div>
         <label className="field">
-          短片名称
+          {tr("短片名称")}
           <input
-            aria-label="短片名称"
+            aria-label={tr("短片名称")}
             maxLength={80}
-            placeholder="给这个故事起个名字"
+            placeholder={tr("给这个故事起个名字")}
             value={title}
             onChange={(e) => setTitle(e.target.value)}
           />
         </label>
         <label className="field">
-          剧本或主题
+          {tr("剧本或主题")}
           <textarea
-            aria-label="剧本或主题"
+            aria-label={tr("剧本或主题")}
             rows={5}
             minLength={5}
             required
             maxLength={20000}
-            placeholder="每段写一个画面，或描述你想讲述的内容…"
+            placeholder={tr("每段写一个画面，或描述你想讲述的内容…")}
             value={brief}
             onChange={(e) => setBrief(e.target.value)}
           />
@@ -1536,61 +1631,64 @@ function NewProjectModal({
           type="button"
           className="text-action example-link"
           onClick={() => {
-            setTitle("雨的一生");
+            setTitle(tr("雨的一生"));
             setBrief(
-              "一滴雨从云层中落下，轻轻碰到山间的树叶。\n它汇入溪流，穿过森林，沿着河道继续向前。\n太阳升起，水汽回到天空。每一次抵达，也是新的开始。",
+              tr(
+                "一滴雨从云层中落下，轻轻碰到山间的树叶。\n它汇入溪流，穿过森林，沿着河道继续向前。\n太阳升起，水汽回到天空。每一次抵达，也是新的开始。",
+              ),
             );
           }}
         >
           <FileText />
-          试试「雨的一生」
+          {tr("试试「雨的一生」")}
         </button>
         <StylePicker value={style} onChange={setStyle} />
         <div className="form-columns">
           <label className="field">
-            目标时长
+            {tr("目标时长")}
             <select
-              aria-label="目标时长"
+              aria-label={tr("目标时长")}
               value={duration}
               onChange={(e) => setDuration(Number(e.target.value))}
             >
               {[15, 30, 45, 60, 90].map((d) => (
                 <option key={d} value={d}>
-                  {d} 秒
+                  {d}
+                  {tr("秒")}
                 </option>
               ))}
             </select>
           </label>
           <label className="field">
-            画幅
+            {tr("画幅")}
             <select
-              aria-label="新项目画幅"
+              aria-label={tr("新项目画幅")}
               value={aspect}
               onChange={(e) => setAspect(e.target.value as Aspect)}
             >
-              <option value="16:9">横屏 · 16:9</option>
-              <option value="9:16">竖屏 · 9:16</option>
-              <option value="1:1">方形 · 1:1</option>
+              <option value="16:9">{tr("横屏 · 16:9")}</option>
+              <option value="9:16">{tr("竖屏 · 9:16")}</option>
+              <option value="1:1">{tr("方形 · 1:1")}</option>
             </select>
           </label>
           <label className="field">
-            分镜方式
+            {tr("分镜方式")}
             <select
-              aria-label="分镜方式"
+              aria-label={tr("分镜方式")}
               value={mode}
               onChange={(e) => setMode(e.target.value)}
             >
-              <option value="local">本地分镜</option>
+              <option value="local">{tr("本地分镜")}</option>
               <option value="deepseek" disabled={!configured}>
-                DeepSeek{!configured ? " · 需配置密钥" : ""}
+                DeepSeek{!configured ? tr(" · 需配置密钥") : ""}
               </option>
             </select>
           </label>
         </div>
         <p className="field-hint">
           {mode === "local"
-            ? "本地分镜按原文分段，不调用模型，不产生 API 费用。"
-            : "DeepSeek 会根据剧本规划分镜，本次调用使用你的账户额度。"}
+            ? tr("本地分镜按原文分段，不调用模型，不产生 API 费用。")
+            : tr("DeepSeek 会根据剧本规划分镜，本次调用使用你的账户额度。")}
         </p>
         {error && (
           <p role="alert" className="inline-error">
@@ -1605,11 +1703,11 @@ function NewProjectModal({
             disabled={busy}
             onClick={onClose}
           >
-            取消
+            {tr("取消")}
           </button>
           <button className="button primary" type="submit" disabled={busy}>
             {busy ? <LoaderCircle className="spin" /> : <Clapperboard />}
-            {busy ? "正在规划分镜" : "创建分镜"}
+            {busy ? tr("正在规划分镜") : tr("创建分镜")}
           </button>
         </div>
       </form>
@@ -1660,10 +1758,10 @@ function SettingsModal({
     }
   }
   return (
-    <Modal title="模型与制作设置" onClose={onClose}>
+    <Modal title={tr("模型与制作设置")} onClose={onClose}>
       <form className="modal-body" onSubmit={save}>
         <p className="settings-intro">
-          不配置密钥，也能使用本地分镜、动画预览和视频导出。
+          {tr("不配置密钥，也能使用本地分镜、动画预览和视频导出。")}
         </p>
         <div className="provider-heading">
           <h3>DeepSeek</h3>
@@ -1672,11 +1770,13 @@ function SettingsModal({
               settings.deepseekConfigured ? "configured" : "not-configured"
             }
           >
-            {settings.deepseekConfigured ? "已配置" : "未配置"}
+            {settings.deepseekConfigured ? tr("已配置") : tr("未配置")}
           </span>
         </div>
         <p className="field-hint">
-          理解剧本、规划镜头。密钥只保存在本机服务端文件中，不会写入项目或浏览器存储。
+          {tr(
+            "理解剧本、规划镜头。密钥只保存在本机服务端文件中，不会写入项目或浏览器存储。",
+          )}
         </p>
         <label className="field">
           API Key
@@ -1687,16 +1787,16 @@ function SettingsModal({
             value={deepseek}
             placeholder={
               settings.deepseekConfigured
-                ? "留空保留现有密钥"
-                : "输入你的 DeepSeek Key"
+                ? tr("留空保留现有密钥")
+                : tr("输入你的 DeepSeek Key")
             }
             onChange={(e) => setDeepseek(e.target.value)}
           />
         </label>
         <label className="field">
-          模型名称
+          {tr("模型名称")}
           <input
-            aria-label="DeepSeek 模型"
+            aria-label={tr("DeepSeek 模型")}
             value={model}
             onChange={(e) => setModel(e.target.value)}
           />
@@ -1707,7 +1807,7 @@ function SettingsModal({
             type="button"
             onClick={() => clear("deepseekKey")}
           >
-            移除 DeepSeek 密钥
+            {tr("移除 DeepSeek 密钥")}
           </button>
         )}
         <div className="inspector-divider" />
@@ -1718,11 +1818,11 @@ function SettingsModal({
               settings.dreamapiConfigured ? "configured" : "not-configured"
             }
           >
-            {settings.dreamapiConfigured ? "已配置" : "未配置"}
+            {settings.dreamapiConfigured ? tr("已配置") : tr("未配置")}
           </span>
         </div>
         <p className="field-hint">
-          按镜头生成图片或中文配音，每次生成前都会确认费用使用。
+          {tr("按镜头生成图片或中文配音，每次生成前都会确认费用使用。")}
         </p>
         <label className="field">
           API Key
@@ -1733,8 +1833,8 @@ function SettingsModal({
             value={dream}
             placeholder={
               settings.dreamapiConfigured
-                ? "留空保留现有密钥"
-                : "输入你的 DreamAPI Key"
+                ? tr("留空保留现有密钥")
+                : tr("输入你的 DreamAPI Key")
             }
             onChange={(e) => setDream(e.target.value)}
           />
@@ -1745,7 +1845,7 @@ function SettingsModal({
           target="_blank"
           rel="noreferrer"
         >
-          打开 DreamAPI 控制台
+          {tr("打开 DreamAPI 控制台")}
           <ExternalLink />
         </a>
         {settings.dreamapiConfigured && (
@@ -1754,13 +1854,15 @@ function SettingsModal({
             type="button"
             onClick={() => clear("dreamapiKey")}
           >
-            移除 DreamAPI 密钥
+            {tr("移除 DreamAPI 密钥")}
           </button>
         )}
         <div className="settings-notice">
           <AlertCircle />
           <span>
-            接口已接入，真实账户生成效果仍待验收。保存密钥不会发起付费调用。
+            {tr(
+              "接口已接入，真实账户生成效果仍待验收。保存密钥不会发起付费调用。",
+            )}
           </span>
         </div>
         {error && (
@@ -1770,10 +1872,11 @@ function SettingsModal({
         )}
         <div className="modal-actions">
           <button type="button" className="button secondary" onClick={onClose}>
-            完成
+            {tr("完成")}
           </button>
           <button type="submit" className="button primary" disabled={busy}>
-            {busy ? <LoaderCircle className="spin" /> : <Check />}保存设置
+            {busy ? <LoaderCircle className="spin" /> : <Check />}
+            {tr("保存设置")}
           </button>
         </div>
       </form>
@@ -1805,7 +1908,9 @@ function ExportRow({
       <div className="export-info">
         <h3>{j.projectTitle}</h3>
         <p>
-          {j.quality}p · 24 fps · 版本 {j.revision}{" "}
+          {j.quality}
+          {tr("p · 24 fps · 版本")}
+          {j.revision}{" "}
           <span>
             ·{" "}
             {new Date(j.createdAt).toLocaleString("zh-CN", {
@@ -1821,13 +1926,15 @@ function ExportRow({
             <progress value={j.progress} max={1} />
             <span className="field-hint">
               {j.status === "queued"
-                ? "等待前一个任务完成"
-                : `正在渲染 ${Math.round(j.progress * 100)}%`}
+                ? tr("等待前一个任务完成")
+                : tr("正在渲染 {0}%", { 0: Math.round(j.progress * 100) })}
             </span>
           </>
         )}
-        {j.error && <p className="export-error">{j.error}</p>}
-        {j.status === "cancelled" && <p className="field-hint">已取消</p>}
+        {j.error && <p className="export-error">{errorText(j.error)}</p>}
+        {j.status === "cancelled" && (
+          <p className="field-hint">{tr("已取消")}</p>
+        )}
       </div>
       <div className="export-actions">
         {done ? (
@@ -1845,24 +1952,24 @@ function ExportRow({
               href={`/api/exports/${j.id}/subtitles.srt`}
               download
             >
-              字幕
+              {tr("字幕")}
             </a>
             <a
               className="text-action"
               href={`/api/exports/${j.id}/project.json`}
               download
             >
-              项目
+              {tr("项目")}
             </a>
           </>
         ) : running ? (
           <button className="button secondary compact" onClick={onCancel}>
-            取消
+            {tr("取消")}
           </button>
         ) : (
           <button className="button secondary compact" onClick={onRetry}>
             <RefreshCw />
-            重新导出
+            {tr("重新导出")}
           </button>
         )}
       </div>
@@ -1887,7 +1994,7 @@ function ExportModal({
     [error, setError] = useState("");
   const active = jobs.find((j) => ["queued", "running"].includes(j.status));
   return (
-    <Modal title="让故事走出创作台" onClose={onClose}>
+    <Modal title={tr("导出短片")} onClose={onClose}>
       <div className="modal-body">
         <div className="export-preview">
           <Thumbnail project={project} time={1} />
@@ -1895,36 +2002,41 @@ function ExportModal({
             <h3>{project.title}</h3>
             <p>
               {project.aspect} · {timecode(totalDuration(project))} ·{" "}
-              {project.scenes.length} 个镜头
+              {project.scenes.length}
+              {tr("个镜头")}
             </p>
           </div>
         </div>
         <label className="field">
-          导出画质
+          {tr("导出画质")}
           <select
-            aria-label="导出画质"
+            aria-label={tr("导出画质")}
             value={quality}
             onChange={(e) => setQuality(Number(e.target.value))}
           >
-            <option value={720}>720p · 快速验收</option>
-            <option value={1080}>1080p · 高清成片</option>
+            <option value={720}>{tr("720p · 快速验收")}</option>
+            <option value={1080}>{tr("1080p · 高清成片")}</option>
           </select>
         </label>
         <div className="export-options">
           <Check />
-          MP4 视频 <span>H.264 · 24 fps</span>
+          {tr("MP4 视频")}
+          <span>H.264 · 24 fps</span>
         </div>
         <div className="export-options">
           <Check />
-          独立字幕 <span>SRT</span>
+          {tr("独立字幕")}
+          <span>SRT</span>
         </div>
         <div className="export-options">
           <Check />
-          分镜快照 <span>JSON</span>
+          {tr("分镜快照")}
+          <span>JSON</span>
         </div>
         <p className="field-hint">
-          在本机逐帧渲染，不调用生成
-          API。导出期间可以继续修改，当前成片会保留提交时的版本。
+          {tr(
+            "在本机逐帧渲染，不调用生成 API。导出期间可以继续修改，当前成片会保留提交时的版本。",
+          )}
         </p>
         {active && (
           <div className="export-progress">
@@ -1932,11 +2044,13 @@ function ExportModal({
             <div>
               <span>
                 {active.status === "queued"
-                  ? "已加入队列"
-                  : `正在渲染 ${Math.round(active.progress * 100)}%`}
+                  ? tr("已加入队列")
+                  : tr("正在渲染 {0}%", {
+                      0: Math.round(active.progress * 100),
+                    })}
               </span>
               <button className="text-action" onClick={() => onCancel(active)}>
-                取消导出
+                {tr("取消导出")}
               </button>
             </div>
           </div>
@@ -1948,7 +2062,7 @@ function ExportModal({
             download
           >
             <Download />
-            下载最近完成的成片
+            {tr("下载最近完成的成片")}
           </a>
         )}
         {error && (
@@ -1962,7 +2076,7 @@ function ExportModal({
             href={`/api/projects/${project.id}/project.json`}
             download
           >
-            只下载项目
+            {tr("只下载项目")}
           </a>
           <button
             className="button primary"
@@ -1980,7 +2094,7 @@ function ExportModal({
             }}
           >
             {busy || active ? <LoaderCircle className="spin" /> : <Download />}
-            {active ? "导出进行中" : "开始导出"}
+            {active ? tr("导出进行中") : tr("开始导出")}
           </button>
         </div>
       </div>

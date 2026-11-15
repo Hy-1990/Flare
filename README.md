@@ -11,6 +11,8 @@ Flare 将剧本、分镜、动画预览、镜头修改和视频导出放在一�
 - 编辑镜头标题、旁白、画面描述、时长、颜色与动画组件；添加、删除、前后移动镜头。
 - 撤销某个镜头的上一次修改，不回滚其他镜头。
 - 实时播放与时间线定位，支持横屏、竖屏和方形构图。
+- 界面支持中文／English；白天、黑夜或跟随系统外观。偏好保存在当前浏览器中，不修改剧本、素材、成片或原版规范。
+- 界面字体采用 IBM Plex Sans、Noto Sans SC 和用于时间码的 IBM Plex Mono，均在本地加载。
 - 导入本地图片，或确认后使用 DreamAPI 生成单镜头图片与中文配音。
 - 配置 DeepSeek 后规划分镜，或用自然语言修改指定镜头。
 - 逐帧导出 720p / 1080p、24 fps 的 H.264 MP4，包含 AAC 音轨；同时下载 SRT 字幕和分镜 JSON。
@@ -85,6 +87,7 @@ npm test
 npm run build
 npm run test:e2e
 npm run test:styles
+npm run test:ui
 npm run format:check
 ```
 

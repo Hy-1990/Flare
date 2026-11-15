@@ -5,6 +5,17 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <meta name="theme-color" content="#f6f6f4" />
     <link rel="icon" href="/favicon.svg" />
+    <script>
+      try {
+        const p = JSON.parse(localStorage.getItem("flare.ui") || "{}");
+        const dark =
+          p.appearance === "dark" ||
+          (p.appearance !== "light" &&
+            matchMedia("(prefers-color-scheme: dark)").matches);
+        document.documentElement.dataset.theme = dark ? "dark" : "light";
+        document.documentElement.style.colorScheme = dark ? "dark" : "light";
+      } catch {}
+    </script>
     <title>Flare · 影像创作台</title>
   </head>
   <body>
