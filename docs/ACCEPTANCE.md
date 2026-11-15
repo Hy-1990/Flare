@@ -4,7 +4,7 @@
 
 - 浏览器访问：<http://127.0.0.1:4317>
 - 服务没有运行时，双击项目根目录的 `启动 Flare.command`。
-- 项目目录：`/Users/huyi/Developer/Flare`
+- 项目目录：`/Users/huyi/Project/cc/Flare`
 - 样片：`docs/verification/sample.mp4`（30 秒，1280×720，24 fps，H.264 + AAC）
 
 ## 建议检查顺序
