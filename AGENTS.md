@@ -1,7 +1,7 @@
 # Flare development
 
 - This project is independent from Henge. Do not read or alter Henge.
-- **Do not push source, tags, releases or deploy without the user's explicit post-review approval.** The GitHub repository currently contains only the initial README.
+- **Do not push source, tags, releases or deploy without the user's explicit post-review approval.**
 - Keep `.flare/`, credentials, logs, generated media and `.loop-runs/` out of Git.
 - Do not use existing account credentials for paid tests. Real generation requires the user's explicit in-app action.
 - Default to loopback-only operation. Never execute model-generated code.

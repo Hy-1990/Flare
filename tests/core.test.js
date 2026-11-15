@@ -581,3 +581,147 @@ test("real mock HTTP DeepSeek and DreamAPI success, dedupe, retained task identi
   assert.equal(freshImage.applied, true);
   assert.equal(freshAudio.applied, true);
 });
+
+test("project deletion checks revisions and unfinished work, preserves shared assets and export snapshots", async (t) => {
+  const a = await fixture(t);
+  const p = a.store.state.projects[0];
+  const other = a.store.create(contentOf(p));
+  const asset = path.join(a.dir, "media", "shared.png");
+  fs.writeFileSync(asset, "shared asset");
+  a.store.state.exports.push({
+    id: "saved-export",
+    projectId: p.id,
+    status: "done",
+    snapshot: contentOf(p),
+  });
+  a.store.persist();
+  const url = `/api/projects/${p.id}`;
+  assert.equal((await a.request(url, "DELETE", {})).status, 400);
+  assert.equal(
+    (await a.request(url, "DELETE", { revision: p.revision + 1 })).status,
+    409,
+  );
+  for (const status of ["queued", "running"]) {
+    a.store.state.exports.push({ id: "busy", projectId: p.id, status });
+    assert.equal(
+      (await a.request(url, "DELETE", { revision: p.revision })).status,
+      409,
+    );
+    a.store.state.exports.pop();
+  }
+  for (const status of ["submitting", "running", "paused", "uncertain"]) {
+    a.store.state.mediaTasks.push({ id: "busy", projectId: p.id, status });
+    assert.equal(
+      (await a.request(url, "DELETE", { revision: p.revision })).status,
+      409,
+    );
+    a.store.state.mediaTasks.pop();
+  }
+  assert.equal(
+    (await a.request(url, "DELETE", { revision: p.revision })).status,
+    200,
+  );
+  assert.equal((await a.request(url)).status, 404);
+  assert.equal(
+    (await a.request(url, "DELETE", { revision: p.revision })).status,
+    404,
+  );
+  assert.ok(fs.existsSync(asset));
+  assert.equal(a.store.state.exports[0].snapshot.title, p.title);
+  assert.equal(new Store(a.dir).state.projects[0].id, other.id);
+  assert.equal(
+    (
+      await a.request(`/api/projects/${other.id}`, "DELETE", {
+        revision: other.revision,
+      })
+    ).status,
+    200,
+  );
+  assert.equal(new Store(a.dir).state.projects.length, 0);
+});
+
+test("DeepSeek forced storyboard and shot tools explicitly disable incompatible default thinking", async () => {
+  const s = { ...starter().scenes[0], duration: 15 };
+  const { id, ...fields } = s;
+  const fetcher = async (_url, options) => {
+    const body = JSON.parse(options.body);
+    assert.deepEqual(body.thinking, { type: "disabled" });
+    const name = body.tool_choice.function.name;
+    return Response.json({
+      choices: [
+        {
+          message: {
+            tool_calls: [
+              {
+                function: {
+                  name,
+                  arguments: JSON.stringify(
+                    name === "emit_scene"
+                      ? fields
+                      : { title: "测试", scenes: [fields] },
+                  ),
+                },
+              },
+            ],
+          },
+        },
+      ],
+    });
+  };
+  const p = await planDeepseek(
+    {
+      title: "测试",
+      brief: "清晨翻开一本书",
+      style: "paper",
+      aspect: "16:9",
+      duration: 15,
+    },
+    "test-key",
+    "deepseek-flash",
+    { fetcher },
+  );
+  assert.equal(p.scenes.length, 1);
+  assert.equal(
+    (
+      await rewriteDeepseek(s, "保持内容", "test-key", "deepseek-flash", {
+        fetcher,
+      })
+    ).id,
+    s.id,
+  );
+});
+
+test("local media and downloads are readable under the actual hidden .flare directory without exposing settings", async (t) => {
+  const parent = temporary(),
+    dir = path.join(parent, ".flare");
+  const a = await createApp({ dir });
+  const server = a.app.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  t.after(() => {
+    server.closeAllConnections();
+    server.close();
+    fs.rmSync(parent, { recursive: true, force: true });
+  });
+  const base = `http://127.0.0.1:${server.address().port}`;
+  fs.writeFileSync(path.join(dir, "media", "test.jpg"), "image bytes");
+  const r = await fetch(base + "/media/test.jpg");
+  assert.equal(r.status, 200);
+  assert.equal(await r.text(), "image bytes");
+  const j = {
+    id: "saved-export",
+    projectId: a.store.state.projects[0].id,
+    status: "done",
+  };
+  a.store.state.exports.push(j);
+  fs.mkdirSync(path.join(dir, "exports", j.id));
+  fs.writeFileSync(path.join(dir, "exports", j.id, "film.mp4"), "video bytes");
+  const film = await fetch(base + `/api/exports/${j.id}/film.mp4`);
+  assert.equal(film.status, 200);
+  assert.equal(await film.text(), "video bytes");
+  assert.match(film.headers.get("content-disposition"), /attachment/);
+  assert.equal((await fetch(base + "/media/settings.json")).status, 404);
+  assert.equal(
+    (await fetch(base + `/api/exports/${j.id}/settings.json`)).status,
+    404,
+  );
+});

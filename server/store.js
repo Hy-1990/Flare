@@ -75,6 +75,31 @@ export class Store {
     this.persist();
     return p;
   }
+  remove(id, revision) {
+    const p = this.project(id);
+    if (p.revision !== revision)
+      throw new AppError(409, "项目已更新，请刷新后重试");
+    if (
+      this.state.exports.some(
+        (j) => j.projectId === id && ["queued", "running"].includes(j.status),
+      )
+    )
+      throw new AppError(409, "项目正在导出，请先取消或等待完成再删除");
+    if (
+      this.state.mediaTasks.some(
+        (t) =>
+          t.projectId === id &&
+          ["submitting", "running", "paused", "uncertain"].includes(t.status),
+      )
+    )
+      throw new AppError(
+        409,
+        "项目有未完成的素材任务，请先完成查询或在控制台核对任务",
+      );
+    // Export snapshots and media can also belong to project copies. Preserve them.
+    this.state.projects = this.state.projects.filter((item) => item.id !== id);
+    this.persist();
+  }
   update(id, revision, content) {
     const p = this.project(id);
     if (p.revision !== revision)

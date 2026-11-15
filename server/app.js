@@ -200,6 +200,16 @@ export async function createApp({
       );
     }),
   );
+  app.delete(
+    "/api/projects/:id",
+    wrap((req, res) => {
+      const { revision } = z
+        .object({ revision: z.number().int().positive() })
+        .parse(req.body);
+      store.remove(ID.parse(req.params.id), revision);
+      res.json({ deleted: true });
+    }),
+  );
   app.post(
     "/api/projects/:id/undo/:sceneId",
     wrap((req, res) =>
@@ -302,7 +312,7 @@ export async function createApp({
     wrap((req, res) => {
       if (!/^[a-zA-Z0-9_-]+\.(png|jpg|webp|wav|mp3|m4a)$/.test(req.params.name))
         throw new AppError(404, "素材不存在");
-      res.sendFile(path.join(store.dir, "media", req.params.name));
+      res.sendFile(req.params.name, { root: path.resolve(store.dir, "media") });
     }),
   );
   app.get("/api/exports", (_req, res) =>
@@ -341,10 +351,9 @@ export async function createApp({
         )
       )
         throw new AppError(404, "文件不存在");
-      res.download(
-        path.join(store.dir, "exports", j.id, req.params.file),
-        req.params.file,
-      );
+      res.download(req.params.file, {
+        root: path.resolve(store.dir, "exports", j.id),
+      });
     }),
   );
   app.get("/api/media-tasks", (_req, res) => res.json(store.state.mediaTasks));

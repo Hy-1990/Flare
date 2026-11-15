@@ -123,6 +123,7 @@ export async function planDeepseek(
     key,
     {
       model,
+      thinking: { type: "disabled" },
       messages: [
         {
           role: "system",
@@ -201,6 +202,7 @@ export async function rewriteDeepseek(
     key,
     {
       model,
+      thinking: { type: "disabled" },
       messages: [
         {
           role: "system",

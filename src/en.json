@@ -340,5 +340,19 @@
   "暂时无法获取原项目资料，请稍后重试": "Original source unavailable. Retry later.",
   "风格资料超过允许大小": "Style source exceeds the size limit",
   "不支持的风格资料": "Unsupported style source",
-  "原项目资料校验不一致，未写入缓存": "Source checksum mismatch. Nothing was cached."
+  "原项目资料校验不一致，未写入缓存": "Source checksum mismatch. Nothing was cached.",
+  "本地制片工作台": "Local film workspace",
+  "镜头": "Shot",
+  "仅编辑当前镜头": "Editing this shot only",
+  "删除项目": "Delete project",
+  "删除": "Delete",
+  "确认删除": "Confirm deletion",
+  "正在删除…": "Deleting…",
+  "项目已删除": "Project deleted",
+  "删除后无法恢复分镜及其编辑记录，未保存的修改也会丢失。已导出的成片和本地素材会保留。": "Deleting permanently removes the storyboard, edit history and unsaved changes. Exported films and local media are kept.",
+  "需要保留可编辑副本？请先下载项目文件。": "To keep an editable copy, download the project file first.",
+  "下载项目文件": "Download project file",
+  "项目正在导出，请先取消或等待完成再删除": "This project is exporting. Cancel the export or wait until it finishes before deleting.",
+  "项目有未完成的素材任务，请先完成查询或在控制台核对任务": "This project has unfinished media tasks. Resume the task query or check the provider dashboard first.",
+  "原项目已删除": "The original project was deleted"
 }

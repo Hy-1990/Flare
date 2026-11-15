@@ -1,118 +1,92 @@
 # Flare
 
-把故事做成影片。一个在本机运行的开源短片创作台。
+**Turn a script into a short film. Keep control of every shot.**
 
-Flare 将剧本、分镜、动画预览、镜头修改和视频导出放在一个工作空间里。DeepSeek 负责可选的 AI 分镜与单镜头修改，DreamAPI 负责可选的图片和配音生成；没有密钥时，也能用本地分镜和程序动画完成影片。
+Flare is an open-source, local short-film workspace. Write a script, shape the storyboard, edit individual shots, preview the result and export your film—without moving between separate tools.
 
-## 当前版本能做什么
+[中文说明](README.zh-CN.md)
 
-- 输入剧本，选择原项目的 99 种风格（15 类），或 Flare 原创的三种风格。按中文、英文、标识或用途搜索，查看原样片与制作规范。
-- 8 种原项目风格有程序动画基础版；其余 91 种采用图片、运镜和字幕，每个镜头需要导入或生成图片后才能导出。
-- 编辑镜头标题、旁白、画面描述、时长、颜色与动画组件；添加、删除、前后移动镜头。
-- 撤销某个镜头的上一次修改，不回滚其他镜头。
-- 实时播放与时间线定位，支持横屏、竖屏和方形构图。
-- 界面支持中文／English；白天、黑夜或跟随系统外观。偏好保存在当前浏览器中，不修改剧本、素材、成片或原版规范。
-- 界面字体采用 IBM Plex Sans、Noto Sans SC 和用于时间码的 IBM Plex Mono，均在本地加载。
-- 导入本地图片，或确认后使用 DreamAPI 生成单镜头图片与中文配音。
-- 配置 DeepSeek 后规划分镜，或用自然语言修改指定镜头。
-- 逐帧导出 720p / 1080p、24 fps 的 H.264 MP4，包含 AAC 音轨；同时下载 SRT 字幕和分镜 JSON。
-- 项目自动持久化；每次导出使用独立快照。支持排队、取消和重新导出。
+## See it in action
 
-## 运行
+[Watch the 28-second launch film](docs/assets/flare-launch.mp4)
 
-需要 **Node.js 22.13+、FFmpeg 7+**。当前在 macOS Apple Silicon 上验证；Linux/Windows 尚未完成验收。
+![Flare's English editing workspace](docs/assets/studio.png)
+
+The launch film passes through Flare's image-assisted renderer and export queue. It uses real interface captures and an original Flare-rendered example. Title cards and final sound/branding were prepared locally; see [production notes](docs/launch-film.md).
+
+## What you can do
+
+- **Plan and revise:** local script splitting, optional DeepSeek storyboarding and natural-language revision of one shot.
+- **Direct each shot:** edit text, duration, composition, color and artwork; reorder, add, delete or undo individual shots.
+- **Bring your visuals:** import images or generate images and narration through DreamAPI with your own keys.
+- **Explore styles:** 99 upstream style references, demo links and production guides. Eight have basic procedural renderers; the other 91 require images. Flare also includes three original procedural styles.
+- **Preview and export:** landscape, portrait or square; 720p/1080p H.264 MP4 at 24 fps, AAC audio, SRT subtitles and project JSON.
+- **Work locally:** persistent projects, duplication, deletion, immutable export snapshots, queueing and cancellation.
+- **Choose your workspace:** English/Chinese, light/dark/system appearance and locally loaded fonts.
+
+## Run locally
+
+Requires **Node.js 22.13+** and **FFmpeg 7+** on your PATH. Validated on macOS Apple Silicon; Linux and Windows are not yet verified.
 
 ```bash
+git clone https://github.com/Hy-1990/Flare.git
+cd Flare
 npm install
 npm run setup:browser
 npm run build
-npm run styles:sync
 npm start
 ```
 
-打开 **http://127.0.0.1:4317**。应用只监听本机，不对局域网开放。
+Open **http://127.0.0.1:4317**. The server listens on loopback only.
 
-`npm run styles:sync` 将固定版本的 99 份制作规范和样片缩略图下载到 `.flare/style-library/`（约 35 MB，带 SHA-256 校验）。只需一次；未预同步时，详情页会按需获取，离线需预先缓存。原样片视频从原项目公开站点播放，不随 Flare 打包。
+Optional: `npm run styles:sync` caches the pinned style guides and posters for offline use (about 35 MB). Without this step, references load on demand; upstream demo videos require internet access.
 
-开发时使用 `npm run dev`。更换端口：`PORT=4318 npm start`。数据目录可通过 `FLARE_DATA_DIR` 指定。默认数据位于项目的 `.flare/`，不会被 Git 跟踪。
+For development, use `npm run dev`. To change ports, use `PORT=4318 npm start`. Set `FLARE_DATA_DIR` to change the data location; the default is `.flare/`.
 
-## 明天如何验收
+## Keys and costs
 
-1. 打开创作台，播放内置的「一粒咖啡的旅程」。打开声音可听程序配乐。
-2. 修改一个镜头，点击「应用修改」，再试一次单镜头撤销。
-3. 在风格库搜索「白板」，查看原样片和规范，应用程序基础版；再选「水彩」，为每镜导入图片，试试 9:16 构图。
-4. 新建短片，使用「雨的一生」示例，选择本地分镜。
-5. 导出 720p 成片，从导出记录下载 MP4、字幕与项目。
-6. 在设置中填写自己的密钥，再测试真实 AI 分镜、单镜头修改、图片与配音。
+Local planning and procedural exports need no API key. Configure your own DeepSeek and DreamAPI keys in Settings, or use `DEEPSEEK_API_KEY` and `DREAMAPI_API_KEY` environment variables.
 
-本地项目路径：`/Users/huyi/Project/cc/Flare`。这只是当前开发机器的位置，其他机器可放在任意独立目录。
+Keys are stored locally in `.flare/settings.json` with mode `600`, **not encrypted**. They are excluded from Git and project exports. Do not share that directory or its backups. Environment variables take precedence over saved settings.
 
-## 密钥与费用
+DeepSeek planning/revision and DreamAPI generation use your provider balance. Image and narration submissions require confirmation. Failed or uncertain submissions are not automatically resubmitted as new paid jobs.
 
-界面右上角的设置可分别保存 DeepSeek 和 DreamAPI Key；留空保留已有值。也支持服务启动环境中的 `DEEPSEEK_API_KEY`、`DREAMAPI_API_KEY`，环境值优先。
+## Scope and limits
 
-密钥保存在 `.flare/settings.json`，文件权限为 `600`，**没有加密**。密钥不会写入项目、字幕、导出快照或浏览器存储，接口只返回是否配置。不要共享 `.flare/settings.json` 或包含它的备份。移除界面中的密钥不改变外部环境变量。
+Flare is a short-film editor and renderer, not a full multi-track NLE or an automatic live-action filmmaking system. Local planning splits text; it does not understand or expand a script. Image-assisted styles animate supplied still images, not generated video clips. A style reference is not a promise to reproduce its demo automatically.
 
-- 本地分镜和程序动画导出不调用模型。
-- 选择 DeepSeek 分镜或点击「用 DeepSeek 修改」会消耗你的 DeepSeek 账户额度。
-- DreamAPI 每次图片／配音提交前都有确认。生成失败不会自动重新付费提交。
-- 查询中断后可恢复原任务；提交结果不确定时先到 DreamAPI 控制台核对，避免重复付费。
-- 核对控制台后可在任务提示中标记已核对；再次生成仍需重新确认付费。因镜头已改变而未自动应用的素材，可以手动选用。
-- 默认图片接口为 Nano Banana 2，默认配音为中文叙事音色。具体可用性和费用以服务商为准。
+Projects support 1–16 shots and 3–120 seconds total. Project JSON references media rather than embedding it; copy the corresponding `.flare/media/` files when moving a project. Narration that exceeds its shot duration must be shortened or the shot extended.
 
-## 重要边界
+Live-account validation covers DeepSeek Flash planning and single-shot revision, plus one DreamAPI image generated, saved and applied. Live narration is **not yet verified**. Automated provider tests use mocks.
 
-**这是一版可运行的本地工具，不是任意剧本自动拍成写实电影的系统。**
-
-- 本地分镜只按原文分段和关键词匹配组件，不会理解、扩写剧本，也不会假装 AI 生成成功。
-- 原项目 99 种风格已补齐目录、参考与规范，**尚未逐个复刻原样片的完整动画引擎**。程序基础版覆盖白板、黑板、瑞士平面、像素 RPG、ASCII CRT、霓虹、交通线路图和蓝图；其余 91 种依赖具体图片素材。Flare 原创三种风格保留原有六类组件。
-- 图片辅助模式不会根据风格名称自动得到对应画面。需要导入符合风格的素材，或使用选中风格的规范调用图片模型；缺图或部分缺图时拒绝导出。
-- 规划分镜、单镜头改写、图片生成均会使用选中风格的规范。数据、地图、仪器等画面只有在你提供真实来源时才能作为事实；生成图片只能作示意。
-- 模型输出只允许经过校验的分镜数据，不执行模型生成的任意代码。
-- 总时长 3–120 秒、1–16 个镜头，每镜 1–30 秒。分镜规划的目标时长为 10–90 秒。
-- 配音长于镜头时，导出会提示延长镜头，避免静默截断。改写旁白会移除旧配音关联。
-- 配音与图片任务完成时，如果目标镜头已改变，保留素材但不覆盖新内容。
-- 当前不含视频模型镜头生成、多人协作、云端托管或完整多轨剪辑。
-- 项目 JSON 包含素材引用，**不内嵌素材文件**。带素材跨机器迁移时需同时复制 `.flare/media/`；只有本机存在的素材引用才允许导入。
-- 浏览器自动播放需要用户操作；默认预览静音。导出的影片按项目的配乐开关和已附加配音合成。
-- 重启后正在执行的导出标记为已中断，排队任务继续；已有成片不丢失。
-- 素材下载拒绝本地与私有网络地址，并固定经过检查的目标 IP。遇到代理的 `198.18/15` Fake-IP DNS 时，会向 Google Public DNS 的固定 HTTPS 接口查询真实公共地址；只发送素材主机名，不发送密钥或素材正文。
-
-**真实 DeepSeek／DreamAPI 账户调用尚未验收。** 当前完成的是官方协议边界测试、真实本地 HTTP 模拟服务、模拟图片与配音进入实际预览及 MP4 的端到端验证。没有借用任何现有账户密钥或偷偷发起付费生成。
-
-## 测试
+## Verification
 
 ```bash
 npm test
 npm run build
 npm run test:e2e
-npm run test:styles
+npm run test:projects
 npm run test:ui
 npm run format:check
 ```
 
-端到端测试启动独立的本地测试服务，使用临时数据和模拟供应商，不接触你的项目或付费账户。测试默认使用端口 4329，请确保可用。风格集成测试需先运行 `npm run styles:sync`，使用端口 4330；缓存未安装时，核心测试明确跳过两项来源集成测试。证据保存在 `docs/verification/`（截图与视频不提交 Git）。
+Tests use isolated temporary projects and mock providers, not your paid account. The end-to-end suite exports real MP4 files and checks preview/export agreement, audio, subtitles, layouts and persistence. Optional `npm run test:styles` uses the synced reference cache.
 
-## 结构
+## Architecture
 
-```text
-src/                 React 创作台
-shared/film.js       预览与导出共用的确定性动画
-shared/model.js      分镜约束、本地规划、时间线与字幕
-shared/score.js      原创程序配乐
-server/app.js        本地 API、来源检查与文件访问
-server/store.js      原子写入、版本检查、镜头撤销
-server/providers.js  DeepSeek / DreamAPI 适配
-server/render.js     Chromium 逐帧渲染、FFmpeg 合成、任务队列
-tests/               状态、接口、安全边界与真实导出测试
-```
+| Path                  | Responsibility                                |
+| --------------------- | --------------------------------------------- |
+| `src/`                | React editor and preferences                  |
+| `shared/film.js`      | Shared deterministic preview/export renderer  |
+| `shared/model.js`     | Validated storyboards, timeline and subtitles |
+| `server/store.js`     | Persistence, revisions and shot undo          |
+| `server/providers.js` | DeepSeek and DreamAPI adapters                |
+| `server/render.js`    | Chromium rendering and FFmpeg export queue    |
 
-## 来源与许可
+Model responses are validated data. Flare does not execute model-generated code.
 
-受 [Lemo-Opuscar](https://github.com/lemomo-ai/lemo-opuscar) 的代码制片思路启发。Flare 的程序、动画引擎与工作流独立编写；风格目录元数据引入上游 MIT 内容，已保留版权和 [MIT 文本](licenses/lemo-opuscar-metadata-MIT.txt)。固定上游版本为 `3a7132b996be0241c1ea0ab180d519f06e6f10b6`。
+## License and references
 
-原制作规范按 **CC BY-NC 4.0** 缓存，原样片与缩略图按 **CC BY 4.0（第三方内容除外）** 展示，不属于 Flare 的 MIT 许可。规范在详情中保留署名与许可；运行时会把相关段落用于选中风格的模型提示。上游另允许使用规范制作自己的商业影片及交付该片项目文件；把规范或改编内容放入商业产品／服务超出这一范围，需要上游商业许可。开源源码许可不改变这些边界，详见 [来源说明](THIRD_PARTY_NOTICES.md) 和固定版本的 [上游许可](https://github.com/lemomo-ai/lemo-opuscar/blob/3a7132b996be0241c1ea0ab180d519f06e6f10b6/LICENSE)。
+Flare's original application code is [MIT](LICENSE). The style catalog incorporates MIT metadata from [Lemo-Opuscar](https://github.com/lemomo-ai/lemo-opuscar), pinned at `3a7132b996be0241c1ea0ab180d519f06e6f10b6`; its copyright and license are retained.
 
-界面打磨参考 [unslop by Damir Sokolovsky](https://heydamir.design/unslop) 的设计方法。依赖与说明见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。Flare 原创源码采用 [MIT](LICENSE)。使用外部生成服务和自带素材时，请分别遵守相应条款。
-
-**当前开发成果仅保存在本地，等待用户验收后再上传 GitHub。**
+Upstream guides and demos have **separate terms** and are not relicensed as Flare MIT. Guides use CC BY-NC 4.0 with upstream additional permissions for making your own films, including commercial films. Other commercial use of original/adapted guides in a product or service requires the upstream commercial license. Posters/demos use CC BY 4.0 subject to third-party exclusions. Read [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) before reuse.

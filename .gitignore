@@ -13,3 +13,5 @@ docs/verification/*.json
 docs/verification/*.jpg
 
 docs/verification/
+
+.impeccable/

@@ -113,9 +113,9 @@ function StyleDetail({
   onCreate,
 }: {
   style: any;
-  project: Project;
+  project?: Project;
   onClose: () => void;
-  onApply: (id: Style) => Promise<void>;
+  onApply: (id: Style) => Promise<boolean>;
   onCreate: (id: Style) => void;
 }) {
   const [guide, setGuide] = useState<any>(null),
@@ -353,24 +353,25 @@ function StyleDetail({
             >
               {tr("用此风格新建")}
             </button>
-            <button
-              className="button primary"
-              disabled={busy || project.style === style.id}
-              onClick={async () => {
-                setBusy(true);
-                try {
-                  await onApply(style.id);
-                  onClose();
-                } finally {
-                  setBusy(false);
-                }
-              }}
-            >
-              {busy ? <LoaderCircle className="spin" /> : <Check />}
-              {project.style === style.id
-                ? tr("当前风格")
-                : tr("应用到当前短片")}
-            </button>
+            {project && (
+              <button
+                className="button primary"
+                disabled={busy || project.style === style.id}
+                onClick={async () => {
+                  setBusy(true);
+                  try {
+                    if (await onApply(style.id)) onClose();
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+              >
+                {busy ? <LoaderCircle className="spin" /> : <Check />}
+                {project?.style === style.id
+                  ? tr("当前风格")
+                  : tr("应用到当前短片")}
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -382,8 +383,8 @@ export default function StyleLibrary({
   onApply,
   onCreate,
 }: {
-  project: Project;
-  onApply: (id: Style) => Promise<void>;
+  project?: Project;
+  onApply: (id: Style) => Promise<boolean>;
   onCreate: (id: Style) => void;
 }) {
   const { language } = usePreferences();
@@ -550,7 +551,7 @@ export default function StyleLibrary({
                             ? tr("原样片参考")
                             : tr("Flare 内置")}
                         </span>
-                        {project.style === s.id && (
+                        {project?.style === s.id && (
                           <span className="selected-style">
                             <Check />
                             {tr("当前风格")}

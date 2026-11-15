@@ -68,7 +68,7 @@ import type {
   Style,
   Aspect,
 } from "./types";
-import "@fontsource-variable/ibm-plex-sans";
+import "@fontsource-variable/source-sans-3";
 import "@fontsource-variable/noto-sans-sc";
 import "@fontsource/ibm-plex-mono/400.css";
 import "./styles.css";
@@ -138,6 +138,9 @@ function App() {
     [inspector, setInspector] = useState(true),
     [aiInstruction, setAiInstruction] = useState(""),
     [aiBusy, setAiBusy] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Project | null>(null),
+    [deleting, setDeleting] = useState(false),
+    [deleteError, setDeleteError] = useState("");
   const sceneBase = useRef<Scene | null>(null);
   const fileInput = useRef<HTMLInputElement>(null),
     importInput = useRef<HTMLInputElement>(null),
@@ -185,7 +188,8 @@ function App() {
   }, [toast]);
   useEffect(() => {
     if (id) localStorage.setItem("flare-project", id);
-  }, [id]);
+    else if (!loading) localStorage.removeItem("flare-project");
+  }, [id, loading]);
   useEffect(() => {
     const before = sceneBase.current;
     setDraft((prev) => {
@@ -292,6 +296,11 @@ function App() {
       if (
         modal ||
         paid ||
+        e.ctrlKey ||
+        e.metaKey ||
+        e.altKey ||
+        e.isComposing ||
+        (e.target as HTMLElement).isContentEditable ||
         document.querySelector('[role="dialog"]') ||
         ["INPUT", "TEXTAREA", "SELECT"].includes(
           (e.target as HTMLElement).tagName,
@@ -299,6 +308,7 @@ function App() {
       )
         return;
       if (e.code === "Space") {
+        if ((e.target as HTMLElement).closest("button,a[href]")) return;
         e.preventDefault();
         if (project) togglePlay();
       }
@@ -362,6 +372,31 @@ function App() {
     setPlaying(false);
     seek(0.8);
     setView("studio");
+  }
+  async function removeProject() {
+    if (!deleteTarget || deleting) return;
+    setDeleting(true);
+    setDeleteError("");
+    try {
+      await api(
+        `/api/projects/${deleteTarget.id}`,
+        send("DELETE", { revision: deleteTarget.revision }),
+      );
+      const remaining = projects.filter((p) => p.id !== deleteTarget.id);
+      setProjects(remaining);
+      setId(remaining[0]?.id || null);
+      setSelected(0);
+      setDraft(null);
+      sceneBase.current = null;
+      setPlaying(false);
+      seek(0.8);
+      setDeleteTarget(null);
+      toast(tr("项目已删除"));
+    } catch (e) {
+      setDeleteError(errorText((e as Error).message));
+    } finally {
+      setDeleting(false);
+    }
   }
   async function moveScene(dir: number) {
     if (!scene) return;
@@ -482,7 +517,7 @@ function App() {
   );
   return (
     <div className="app-shell">
-      <aside className="sidebar">
+      <header className="topbar">
         <button
           className="brand"
           onClick={() => setView("studio")}
@@ -493,6 +528,101 @@ function App() {
             Flare<span className="brand-dot">.</span>
           </span>
         </button>
+        <div className="breadcrumb">
+          <span>{tr("本地制片工作台")}</span>
+        </div>
+        <div className="top-actions">
+          <span className="save-state">
+            {saving ? (
+              <LoaderCircle className="spin" />
+            ) : dirty ? (
+              <AlertCircle />
+            ) : (
+              <Check />
+            )}
+            {saving
+              ? tr("正在保存")
+              : dirty
+                ? tr("镜头修改待应用")
+                : tr("更改保存在本机")}
+          </span>
+          <div className="display-preferences">
+            <label className="preference-control">
+              <Languages aria-hidden="true" />
+              <span className="sr-only">
+                {preferences.language === "en"
+                  ? "Interface language"
+                  : "界面语言"}
+              </span>
+              <select
+                aria-label="Language / 语言"
+                value={preferences.language}
+                onChange={(e) =>
+                  setPreferences({ language: e.target.value as "zh" | "en" })
+                }
+              >
+                <option value="zh">中文</option>
+                <option value="en">English</option>
+              </select>
+              <ChevronDown className="preference-arrow" aria-hidden="true" />
+            </label>
+            <label className="preference-control appearance-control">
+              {preferences.appearance === "dark" ? (
+                <Moon aria-hidden="true" />
+              ) : preferences.appearance === "light" ? (
+                <Sun aria-hidden="true" />
+              ) : (
+                <Monitor aria-hidden="true" />
+              )}
+              <span className="sr-only">
+                {preferences.language === "en" ? "Appearance" : "外观"}
+              </span>
+              <select
+                aria-label="Appearance / 外观"
+                value={preferences.appearance}
+                onChange={(e) =>
+                  setPreferences({
+                    appearance: e.target.value as "light" | "dark" | "system",
+                  })
+                }
+              >
+                <option value="system">
+                  {preferences.language === "en" ? "System" : "跟随系统"}
+                </option>
+                <option value="light">
+                  {preferences.language === "en" ? "Light" : "白天"}
+                </option>
+                <option value="dark">
+                  {preferences.language === "en" ? "Dark" : "黑夜"}
+                </option>
+              </select>
+              <ChevronDown className="preference-arrow" aria-hidden="true" />
+            </label>
+          </div>
+
+          <button
+            className="icon-button"
+            aria-label={tr("设置")}
+            onClick={() => setModal("settings")}
+          >
+            <Settings2 />
+          </button>
+          {project && (
+            <button
+              className="button primary global-export"
+              onClick={async () => {
+                if (dirty && !(await saveDraft())) return;
+                setPlaying(false);
+                setModal("export");
+              }}
+            >
+              <Download />
+              {tr("导出短片")}
+            </button>
+          )}
+        </div>
+      </header>
+      <aside className="sidebar">
         <div className="workspace-label">
           {tr("个人工作空间")}
           <span>{tr("本地")}</span>
@@ -576,95 +706,8 @@ function App() {
         </div>
       </aside>
       <div className="main-shell">
-        <header className="topbar">
-          <div className="breadcrumb">
-            <span>{tr("工作空间")}</span>
-            <ChevronRight />
-            <span>
-              {view === "studio"
-                ? tr("创作台")
-                : view === "styles"
-                  ? tr("风格库")
-                  : tr("导出记录")}
-            </span>
-          </div>
-          <div className="top-actions">
-            <div className="display-preferences">
-              <label className="preference-control">
-                <Languages aria-hidden="true" />
-                <span className="sr-only">
-                  {preferences.language === "en"
-                    ? "Interface language"
-                    : "界面语言"}
-                </span>
-                <select
-                  aria-label="Language / 语言"
-                  value={preferences.language}
-                  onChange={(e) =>
-                    setPreferences({ language: e.target.value as "zh" | "en" })
-                  }
-                >
-                  <option value="zh">中文</option>
-                  <option value="en">English</option>
-                </select>
-              </label>
-              <label className="preference-control appearance-control">
-                {preferences.appearance === "dark" ? (
-                  <Moon aria-hidden="true" />
-                ) : preferences.appearance === "light" ? (
-                  <Sun aria-hidden="true" />
-                ) : (
-                  <Monitor aria-hidden="true" />
-                )}
-                <span className="sr-only">
-                  {preferences.language === "en" ? "Appearance" : "外观"}
-                </span>
-                <select
-                  aria-label="Appearance / 外观"
-                  value={preferences.appearance}
-                  onChange={(e) =>
-                    setPreferences({
-                      appearance: e.target.value as "light" | "dark" | "system",
-                    })
-                  }
-                >
-                  <option value="system">
-                    {preferences.language === "en" ? "System" : "跟随系统"}
-                  </option>
-                  <option value="light">
-                    {preferences.language === "en" ? "Light" : "白天"}
-                  </option>
-                  <option value="dark">
-                    {preferences.language === "en" ? "Dark" : "黑夜"}
-                  </option>
-                </select>
-              </label>
-            </div>
-            <span className="save-state">
-              {saving ? (
-                <LoaderCircle className="spin" />
-              ) : dirty ? (
-                <AlertCircle />
-              ) : (
-                <Check />
-              )}
-              {saving
-                ? tr("正在保存")
-                : dirty
-                  ? tr("镜头修改待应用")
-                  : tr("更改保存在本机")}
-            </span>
-            <button
-              className="icon-button"
-              aria-label={tr("设置")}
-              onClick={() => setModal("settings")}
-            >
-              <Settings2 />
-            </button>
-          </div>
-        </header>
         {project && view === "studio" && (
-          <main className="studio">
+          <main className={`studio ${!inspector ? "without-inspector" : ""}`}>
             <div className="project-heading">
               <div>
                 <h1>{project.title}</h1>
@@ -686,6 +729,19 @@ function App() {
                 </div>
               </div>
               <div className="heading-actions">
+                <button
+                  className="button secondary compact danger"
+                  aria-label={tr("删除项目")}
+                  title={tr("删除项目")}
+                  onClick={() => {
+                    setPlaying(false);
+                    setDeleteError("");
+                    setDeleteTarget(project);
+                  }}
+                >
+                  <Trash2 />
+                  <span>{tr("删除")}</span>
+                </button>
                 <button
                   className="button secondary compact"
                   onClick={async () => {
@@ -710,17 +766,6 @@ function App() {
                   <Copy />
                   <span>{tr("副本")}</span>
                 </button>
-                <button
-                  className="button primary"
-                  onClick={async () => {
-                    if (dirty && !(await saveDraft())) return;
-                    setPlaying(false);
-                    setModal("export");
-                  }}
-                >
-                  <Download />
-                  {tr("导出短片")}
-                </button>
               </div>
             </div>
             <div
@@ -733,6 +778,10 @@ function App() {
                     {tr("影片预览")}
                   </span>
                   <div>
+                    <span className="current-shot">
+                      {tr("镜头")} {String(selected + 1).padStart(2, "0")} /{" "}
+                      {String(project.scenes.length).padStart(2, "0")}
+                    </span>
                     <label className="inline-select">
                       <span className="sr-only">{tr("画幅")}</span>
                       <select
@@ -842,10 +891,10 @@ function App() {
                 <aside className="inspector">
                   <div className="inspector-head">
                     <div>
-                      <SlidersHorizontal />
                       <h2>{tr("镜头设置")}</h2>
+                      <p>{tr("仅编辑当前镜头")}</p>
                     </div>
-                    <span className="mono">
+                    <span className="inspector-index">
                       {String(selected + 1).padStart(2, "0")}
                     </span>
                   </div>
@@ -1264,7 +1313,7 @@ function App() {
             </footer>
           </main>
         )}
-        {view === "styles" && project && (
+        {view === "styles" && (
           <StyleLibrary
             project={project}
             onApply={async (id) => {
@@ -1272,7 +1321,9 @@ function App() {
               if (base && (await update({ style: id }, base))) {
                 setView("studio");
                 toast(tr("风格已应用，分镜内容保持原样"));
+                return true;
               }
+              return false;
             }}
             onCreate={(id) => {
               setNewStyle(id);
@@ -1308,6 +1359,7 @@ function App() {
                   <ExportRow
                     key={j.id}
                     job={j}
+                    projectExists={projects.some((p) => p.id === j.projectId)}
                     onCancel={() =>
                       api(`/api/exports/${j.id}/cancel`, send("POST"))
                         .then(() => toast(tr("已取消导出")))
@@ -1334,21 +1386,21 @@ function App() {
             )}
           </main>
         )}
+        {!project && !loading && view === "studio" && (
+          <div className="empty-state">
+            <h1>{tr("开始你的第一支短片")}</h1>
+            <button
+              className="button primary"
+              onClick={() => {
+                setNewStyle("paper");
+                setModal("new");
+              }}
+            >
+              {tr("新建短片")}
+            </button>
+          </div>
+        )}
       </div>
-      {!project && !loading && (
-        <div className="empty-state">
-          <h1>{tr("开始你的第一支短片")}</h1>
-          <button
-            className="button primary"
-            onClick={() => {
-              setNewStyle("paper");
-              setModal("new");
-            }}
-          >
-            {tr("新建短片")}
-          </button>
-        </div>
-      )}
       <input
         ref={fileInput}
         type="file"
@@ -1385,6 +1437,55 @@ function App() {
             <X />
           </button>
         </div>
+      )}
+      {deleteTarget && (
+        <Modal
+          title={tr("删除项目")}
+          onClose={() => {
+            if (!deleting) setDeleteTarget(null);
+          }}
+        >
+          <div className="modal-body">
+            <p className="delete-project-title">{deleteTarget.title}</p>
+            <p>
+              {tr(
+                "删除后无法恢复分镜及其编辑记录，未保存的修改也会丢失。已导出的成片和本地素材会保留。",
+              )}
+            </p>
+            <p className="field-hint">
+              {tr("需要保留可编辑副本？请先下载项目文件。")}
+            </p>
+            <a
+              className="text-action"
+              href={`/api/projects/${deleteTarget.id}/project.json`}
+              download
+            >
+              {tr("下载项目文件")}
+            </a>
+            {deleteError && (
+              <p className="inline-error" role="alert">
+                {deleteError}
+              </p>
+            )}
+            <div className="modal-actions">
+              <button
+                className="button secondary"
+                autoFocus
+                disabled={deleting}
+                onClick={() => setDeleteTarget(null)}
+              >
+                {tr("取消")}
+              </button>
+              <button
+                className="button primary"
+                disabled={deleting}
+                onClick={removeProject}
+              >
+                {deleting ? tr("正在删除…") : tr("确认删除")}
+              </button>
+            </div>
+          </div>
+        </Modal>
       )}
       {modal === "new" && (
         <NewProjectModal
@@ -1595,15 +1696,9 @@ function NewProjectModal({
       }}
     >
       <form className="modal-body new-film-form" onSubmit={submit}>
-        <div className="new-film-intro">
-          <span className="large-icon">
-            <Clapperboard />
-          </span>
-          <div>
-            <h3>{tr("新的故事")}</h3>
-            <p>{tr("可以是一段剧本，也可以是一个具体的主题。")}</p>
-          </div>
-        </div>
+        <p className="new-film-intro">
+          {tr("可以是一段剧本，也可以是一个具体的主题。")}
+        </p>
         <label className="field">
           {tr("短片名称")}
           <input
@@ -1839,24 +1934,26 @@ function SettingsModal({
             onChange={(e) => setDream(e.target.value)}
           />
         </label>
-        <a
-          className="text-action"
-          href="https://api.newportai.com/"
-          target="_blank"
-          rel="noreferrer"
-        >
-          {tr("打开 DreamAPI 控制台")}
-          <ExternalLink />
-        </a>
-        {settings.dreamapiConfigured && (
-          <button
-            className="text-action danger"
-            type="button"
-            onClick={() => clear("dreamapiKey")}
+        <div className="provider-actions">
+          <a
+            className="text-action"
+            href="https://api.newportai.com/"
+            target="_blank"
+            rel="noreferrer"
           >
-            {tr("移除 DreamAPI 密钥")}
-          </button>
-        )}
+            {tr("打开 DreamAPI 控制台")}
+            <ExternalLink />
+          </a>
+          {settings.dreamapiConfigured && (
+            <button
+              className="text-action danger"
+              type="button"
+              onClick={() => clear("dreamapiKey")}
+            >
+              {tr("移除 DreamAPI 密钥")}
+            </button>
+          )}
+        </div>
         <div className="settings-notice">
           <AlertCircle />
           <span>
@@ -1885,10 +1982,12 @@ function SettingsModal({
 }
 function ExportRow({
   job: j,
+  projectExists,
   onCancel,
   onRetry,
 }: {
   job: Job;
+  projectExists: boolean;
   onCancel: () => void;
   onRetry: () => void;
 }) {
@@ -1967,7 +2066,12 @@ function ExportRow({
             {tr("取消")}
           </button>
         ) : (
-          <button className="button secondary compact" onClick={onRetry}>
+          <button
+            className="button secondary compact"
+            onClick={onRetry}
+            disabled={!projectExists}
+            title={!projectExists ? tr("原项目已删除") : undefined}
+          >
             <RefreshCw />
             {tr("重新导出")}
           </button>
