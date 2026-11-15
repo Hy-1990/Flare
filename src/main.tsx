@@ -59,6 +59,9 @@ import type {
 } from "./types";
 import "@fontsource-variable/dm-sans";
 import "./styles.css";
+import Modal from "./Modal";
+import StyleLibrary, { StylePicker } from "./StyleLibrary";
+import { getStyle, missingShotImages } from "../shared/styles.js";
 
 function Thumbnail({
   project,
@@ -95,76 +98,6 @@ function Thumbnail({
     />
   );
 }
-function Modal({
-  title,
-  children,
-  onClose,
-  wide = false,
-}: {
-  title: string;
-  children: React.ReactNode;
-  onClose: () => void;
-  wide?: boolean;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
-  const closeRef = useRef(onClose);
-  closeRef.current = onClose;
-  useEffect(() => {
-    const previous = document.activeElement as HTMLElement;
-    const handler = (e: globalThis.KeyboardEvent) => {
-      if (e.key === "Escape") closeRef.current();
-      if (e.key === "Tab") {
-        const els = Array.from(
-          ref.current?.querySelectorAll<HTMLElement>(
-            "button,input,textarea,select,a[href]",
-          ) || [],
-        ).filter((el) => !el.hasAttribute("disabled"));
-        const first = els[0],
-          last = els.at(-1);
-        if (e.shiftKey && document.activeElement === first) {
-          e.preventDefault();
-          last?.focus();
-        } else if (!e.shiftKey && document.activeElement === last) {
-          e.preventDefault();
-          first?.focus();
-        }
-      }
-    };
-    document.addEventListener("keydown", handler);
-    (
-      ref.current?.querySelector<HTMLElement>("input,textarea,select") ||
-      ref.current?.querySelector<HTMLElement>("button")
-    )?.focus();
-    return () => {
-      document.removeEventListener("keydown", handler);
-      previous?.focus();
-    };
-  }, []);
-  return (
-    <div
-      className="modal-backdrop"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div
-        className={`modal ${wide ? "wide" : ""}`}
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        ref={ref}
-      >
-        <header className="modal-head">
-          <h2>{title}</h2>
-          <button className="icon-button" aria-label="关闭" onClick={onClose}>
-            <X />
-          </button>
-        </header>
-        {children}
-      </div>
-    </div>
-  );
-}
 function App() {
   const [projects, setProjects] = useState<Project[]>([]),
     [id, setId] = useState<string | null>(null),
@@ -173,9 +106,10 @@ function App() {
     [jobs, setJobs] = useState<Job[]>([]),
     [tasks, setTasks] = useState<MediaTask[]>([]),
     [loading, setLoading] = useState(true);
-  const [modal, setModal] = useState<
-      "new" | "settings" | "export" | "help" | null
-    >(null),
+  const [newStyle, setNewStyle] = useState<Style>("paper"),
+    [modal, setModal] = useState<"new" | "settings" | "export" | "help" | null>(
+      null,
+    ),
     [paid, setPaid] = useState<"image" | "audio" | null>(null),
     [selected, setSelected] = useState(0),
     [draft, setDraft] = useState<Scene | null>(null),
@@ -344,6 +278,7 @@ function App() {
       if (
         modal ||
         paid ||
+        document.querySelector('[role="dialog"]') ||
         ["INPUT", "TEXTAREA", "SELECT"].includes(
           (e.target as HTMLElement).tagName,
         )
@@ -364,6 +299,7 @@ function App() {
       if (e.key === "?") setModal("help");
       if (e.key.toLowerCase() === "n") {
         e.preventDefault();
+        setNewStyle("paper");
         setModal("new");
       }
     };
@@ -546,7 +482,13 @@ function App() {
         <div className="workspace-label">
           个人工作空间 <span>本地</span>
         </div>
-        <button className="new-project" onClick={() => setModal("new")}>
+        <button
+          className="new-project"
+          onClick={() => {
+            setNewStyle("paper");
+            setModal("new");
+          }}
+        >
           <Plus />
           新建短片 <kbd>N</kbd>
         </button>
@@ -753,6 +695,15 @@ function App() {
                     </button>
                   </div>
                 </div>
+                {missingShotImages(project).length > 0 && (
+                  <div className="production-note">
+                    <ImagePlus />
+                    <span>
+                      图片辅助制作 · {missingShotImages(project).length}{" "}
+                      个镜头还需要图片。请逐镜头导入或生成素材，补齐后才能导出。
+                    </span>
+                  </div>
+                )}
                 <FilmViewer project={project} time={time} />
                 <div className="transport">
                   <button
@@ -1232,58 +1183,20 @@ function App() {
           </main>
         )}
         {view === "styles" && project && (
-          <main className="page-content">
-            <div className="page-heading">
-              <div className="eyebrow">选择一种视觉语言</div>
-              <h1>风格库</h1>
-              <p>同一个故事，三种讲述方式。切换风格，保留你的分镜。</p>
-            </div>
-            <div className="style-grid">
-              {STYLES.map((s, i) => (
-                <button
-                  className={`style-card ${project.style === s.id ? "active" : ""}`}
-                  key={s.id}
-                  onClick={async () => {
-                    const base = dirty ? await saveDraft() : project;
-                    if (
-                      base &&
-                      (await update({ style: s.id as Style }, base))
-                    ) {
-                      setView("studio");
-                      toast(`已切换为${s.name}`);
-                    }
-                  }}
-                >
-                  <div className="style-preview">
-                    <Thumbnail
-                      project={{ ...project, style: s.id as Style }}
-                      time={1.5}
-                    />
-                  </div>
-                  <div className="style-card-body">
-                    <span className="mono style-index">0{i + 1}</span>
-                    <div>
-                      <h2>{s.name}</h2>
-                      <span className="style-en">{s.en}</span>
-                      <p>{s.desc}</p>
-                    </div>
-                    {project.style === s.id ? (
-                      <CheckCircle2 />
-                    ) : (
-                      <ArrowUpRight />
-                    )}
-                  </div>
-                </button>
-              ))}
-            </div>
-            <div className="quiet-note">
-              <Aperture />
-              <p>
-                这里的画面由代码绘制。你也可以为单个镜头导入图片，或通过
-                DreamAPI 生成素材。
-              </p>
-            </div>
-          </main>
+          <StyleLibrary
+            project={project}
+            onApply={async (id) => {
+              const base = dirty ? await saveDraft() : project;
+              if (base && (await update({ style: id }, base))) {
+                setView("studio");
+                toast("风格已应用，分镜内容保持原样");
+              }
+            }}
+            onCreate={(id) => {
+              setNewStyle(id);
+              setModal("new");
+            }}
+          />
         )}
         {view === "exports" && (
           <main className="page-content">
@@ -1342,7 +1255,13 @@ function App() {
       {!project && !loading && (
         <div className="empty-state">
           <h1>开始你的第一支短片</h1>
-          <button className="button primary" onClick={() => setModal("new")}>
+          <button
+            className="button primary"
+            onClick={() => {
+              setNewStyle("paper");
+              setModal("new");
+            }}
+          >
             新建短片
           </button>
         </div>
@@ -1388,6 +1307,7 @@ function App() {
         <NewProjectModal
           onClose={closeModal}
           configured={!!settings?.deepseekConfigured}
+          initialStyle={newStyle}
           onCreate={(p) => {
             putProject(p);
             setId(p.id);
@@ -1538,15 +1458,17 @@ function FilmViewer({ project, time }: { project: Project; time: number }) {
 function NewProjectModal({
   onClose,
   configured,
+  initialStyle = "paper",
   onCreate,
 }: {
   onClose: () => void;
   configured: boolean;
+  initialStyle?: Style;
   onCreate: (p: Project) => void;
 }) {
   const [title, setTitle] = useState(""),
     [brief, setBrief] = useState(""),
-    [style, setStyle] = useState<Style>("paper"),
+    [style, setStyle] = useState<Style>(initialStyle),
     [aspect, setAspect] = useState<Aspect>("16:9"),
     [duration, setDuration] = useState(30),
     [mode, setMode] = useState("local"),
@@ -1623,21 +1545,7 @@ function NewProjectModal({
           <FileText />
           试试「雨的一生」
         </button>
-        <div className="form-label">视觉风格</div>
-        <div className="style-options">
-          {STYLES.map((s) => (
-            <button
-              type="button"
-              className={style === s.id ? "active" : ""}
-              key={s.id}
-              onClick={() => setStyle(s.id as Style)}
-            >
-              <span style={{ background: s.color }} />
-              {s.name}
-              {style === s.id && <Check />}
-            </button>
-          ))}
-        </div>
+        <StylePicker value={style} onChange={setStyle} />
         <div className="form-columns">
           <label className="field">
             目标时长

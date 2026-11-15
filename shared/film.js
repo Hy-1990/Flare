@@ -1,4 +1,6 @@
 import { sceneAt, totalDuration, captionChunks } from "./model.js";
+import { getStyle } from "./styles.js";
+import { drawImageFilm, drawNativeStyle } from "./style-engines.js";
 const FONT = '"PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif';
 const ease = (x) => 1 - (1 - Math.max(0, Math.min(1, x))) ** 3;
 function circle(c, x, y, r, fill) {
@@ -277,7 +279,15 @@ export function drawFilm(canvas, p, t, { thumbnail = false } = {}) {
     index,
     local,
   } = sceneAt(p, Math.min(t, totalDuration(p) - 0.001));
-  const style = p.style;
+  const definition = getStyle(p.style);
+  if (!definition) throw Error("未知风格");
+  const image = s.image && imageCache.get(s.image);
+  if (definition.mode === "image") {
+    drawImageFilm(canvas, p, t, definition, image, thumbnail);
+    return;
+  }
+  if (drawNativeStyle(canvas, p, t, definition, image, thumbnail)) return;
+  const style = definition.engine;
   const dark = style === "noir",
     blue = style === "blueprint",
     bg = blue ? "#17395e" : dark ? "#191e1b" : "#f2ebd9",

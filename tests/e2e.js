@@ -214,6 +214,9 @@ try {
     assert.ok(r.ok, JSON.stringify(d));
     return d;
   };
+  await page.route("**/api/styles/*/poster.jpg", (route) =>
+    route.fulfill({ contentType: "image/png", body: img }),
+  );
   await page.goto(base);
   await page
     .getByRole("heading", { name: "一粒咖啡的旅程", exact: true })
@@ -277,12 +280,18 @@ try {
         .catch(() => false))
     )
       await page.getByRole("button", { name: "风格库", exact: true }).click();
-    await page.getByRole("button", { name: new RegExp(style) }).click();
+    await page.getByRole("tab", { name: /Flare 内置/ }).click();
+    await page
+      .getByRole("button", { name: `查看风格·${style}`, exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: "应用到当前短片", exact: true })
+      .click();
     await page
       .getByRole("heading", { name: "一粒咖啡的旅程", exact: true })
       .waitFor();
   }
-  checks.push("Three styles switch through real user controls");
+  checks.push("Three legacy styles switch through real user controls");
   await page
     .getByRole("combobox", { name: "画幅", exact: true })
     .selectOption("9:16");

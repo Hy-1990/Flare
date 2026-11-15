@@ -6,6 +6,7 @@ import { chromium } from "playwright-core";
 import { dimensions, totalDuration, makeSrt } from "../shared/model.js";
 import { scoreSamples } from "../shared/score.js";
 import { AppError, uid, hash, contentOf } from "./store.js";
+import { missingShotImages } from "../shared/styles.js";
 
 export function browserPath() {
   if (process.env.FLARE_CHROMIUM) return process.env.FLARE_CHROMIUM;
@@ -89,6 +90,15 @@ export class ExportQueue {
             j.requestKey === requestKey &&
             j.signature === signature,
         );
+    const missing = missingShotImages(snapshot);
+    if (missing.length)
+      throw new AppError(
+        400,
+        `当前风格使用图片辅助制作，${missing.length} 个镜头尚未添加图片：${missing
+          .map((s) => s.title || s.id)
+          .slice(0, 3)
+          .join("、")}`,
+      );
     if (existing) return existing;
     const job = {
       id: uid(),

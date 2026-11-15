@@ -1,27 +1,6 @@
 import { z } from "zod";
-export const STYLES = [
-  {
-    id: "paper",
-    name: "纸上叙事",
-    en: "Paper narrative",
-    desc: "剪纸的层次，温暖的色彩。让故事在纸上发生。",
-    color: "#e56643",
-  },
-  {
-    id: "blueprint",
-    name: "工程蓝图",
-    en: "Blueprint",
-    desc: "精确的线条与标注，把复杂的事情讲清楚。",
-    color: "#4564ac",
-  },
-  {
-    id: "noir",
-    name: "光影纪事",
-    en: "Light & shadow",
-    desc: "克制的构图、鲜明的对比，让每一帧有分量。",
-    color: "#606a58",
-  },
-];
+import { STYLE_IDS } from "./styles.js";
+export { STYLES } from "./styles.js";
 export const ART = [
   "landscape",
   "coffee",
@@ -54,7 +33,7 @@ export const ProjectContentSchema = z
   .object({
     title: z.string().trim().min(1).max(80),
     brief: z.string().max(20000),
-    style: z.enum(["paper", "blueprint", "noir"]),
+    style: z.enum(STYLE_IDS),
     aspect: z.enum(["16:9", "9:16", "1:1"]),
     music: z.boolean(),
     scenes: z.array(SceneSchema).min(1).max(16),
@@ -69,7 +48,7 @@ export const ProjectContentSchema = z
 export const BriefSchema = z.object({
   title: z.string().max(80).optional(),
   brief: z.string().trim().min(5).max(20000),
-  style: z.enum(["paper", "blueprint", "noir"]),
+  style: z.enum(STYLE_IDS),
   aspect: z.enum(["16:9", "9:16", "1:1"]),
   duration: z.number().min(10).max(90),
   mode: z.enum(["local", "deepseek"]),

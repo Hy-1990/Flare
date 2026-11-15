@@ -1,4 +1,4 @@
-export type Style = "paper" | "blueprint" | "noir";
+export type Style = "paper" | "blueprint" | "noir" | `opuscar:${string}`;
 export type Aspect = "16:9" | "9:16" | "1:1";
 export interface Scene {
   id: string;

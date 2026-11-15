@@ -17,6 +17,18 @@ import {
   imageExtension,
 } from "./providers.js";
 import { ExportQueue, browserPath } from "./render.js";
+import {
+  STYLES,
+  CATEGORIES,
+  STYLE_SOURCE,
+  getStyle,
+} from "../shared/styles.js";
+import {
+  styleGuide,
+  styleContext,
+  cacheStyleFile,
+  styleCacheRoot,
+} from "./style-library.js";
 
 const ID = z.string().regex(/^[a-zA-Z0-9_-]{1,64}$/);
 const Settings = z
@@ -99,6 +111,36 @@ export async function createApp({
     });
   });
   app.get("/api/settings", (_req, res) => res.json(store.publicSettings()));
+  app.get("/api/styles", (_req, res) =>
+    res.json({ styles: STYLES, categories: CATEGORIES, source: STYLE_SOURCE }),
+  );
+  app.get(
+    "/api/styles/:slug/guide",
+    wrap(async (req, res) =>
+      res.json(
+        await styleGuide(store, "opuscar:" + req.params.slug, {
+          fetcher: providerDeps.guideFetcher || fetch,
+        }),
+      ),
+    ),
+  );
+  app.get(
+    "/api/styles/:slug/poster.jpg",
+    wrap(async (req, res) => {
+      const s = getStyle("opuscar:" + req.params.slug);
+      if (!s || s.origin !== "upstream") throw new AppError(404, "风格不存在");
+      const bytes = await cacheStyleFile(
+        s,
+        "poster.jpg",
+        styleCacheRoot(store),
+        { fetcher: providerDeps.guideFetcher || fetch },
+      );
+      res
+        .type("image/jpeg")
+        .set("Cache-Control", "public,max-age=86400")
+        .send(bytes);
+    }),
+  );
   app.patch(
     "/api/settings",
     wrap((req, res) => res.json(store.saveSettings(Settings.parse(req.body)))),
@@ -123,7 +165,12 @@ export async function createApp({
               brief,
               store.keys().deepseekKey,
               store.settings.model,
-              providerDeps,
+              {
+                ...providerDeps,
+                styleContext: await styleContext(store, brief.style, {
+                  fetcher: providerDeps.guideFetcher || fetch,
+                }),
+              },
             );
       res.status(201).json(safeProject(store.create(content, brief.mode)));
     }),
@@ -185,7 +232,12 @@ export async function createApp({
           instruction,
           store.keys().deepseekKey,
           store.settings.model,
-          providerDeps,
+          {
+            ...providerDeps,
+            styleContext: await styleContext(store, p.style, {
+              fetcher: providerDeps.guideFetcher || fetch,
+            }),
+          },
         ),
         current = store.project(id),
         target = current.scenes.find((s) => s.id === sceneId);

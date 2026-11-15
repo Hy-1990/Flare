@@ -4,6 +4,10 @@
 
 Script-to-storyboard, three original styles, deterministic live animation, per-shot editing and undo, project persistence/import/export, original background score, opted-in DeepSeek planning and shot revision, opted-in DreamAPI image/TTS jobs, MP4/SRT/snapshot export, bounded local execution and automated verification.
 
+## Style library extension — implemented for local acceptance
+
+Pinned upstream99style metadata in15categories, source posters/demo links/guides,8native basic modes,91image-assisted modes with required-image export guard, style-conditioned plan/rewrite/image prompts, reproducible hashed cache and explicit license attribution. Full original99demo-engine parity remains future work.
+
 ## Next gate — user acceptance
 
 Check the interface and film output locally. Configure your own provider keys and test actual model behavior, available voices, latency and account cost. Tune prompts against observed DeepSeek output. Do not publish until this gate is approved.

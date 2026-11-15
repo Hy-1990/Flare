@@ -14,8 +14,10 @@
     "test": "node --test tests/*.test.js",
     "test:e2e": "node tests/e2e.js",
     "setup:browser": "playwright-core install chromium-headless-shell",
-    "format": "prettier --write src server shared tests *.json *.js *.html *.md docs/*.md",
-    "format:check": "prettier --check src server shared tests *.json *.js *.html *.md docs/*.md"
+    "format": "prettier --write src server shared tests tools *.json *.js *.html *.md docs/*.md",
+    "format:check": "prettier --check src server shared tests tools *.json *.js *.html *.md docs/*.md",
+    "styles:sync": "node tools/sync-styles.js",
+    "test:styles": "node tests/styles-e2e.js"
   },
   "dependencies": {
     "@fontsource-variable/dm-sans": "^5.3.0",

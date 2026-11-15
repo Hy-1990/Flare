@@ -5,6 +5,7 @@ import path from "node:path";
 import { z } from "zod";
 import { SceneSchema, ProjectContentSchema } from "../shared/model.js";
 import { AppError, uid, hash } from "./store.js";
+import { styleContext } from "./style-library.js";
 
 export async function readBounded(response, max = 1024 * 1024) {
   if (Number(response.headers.get("content-length") || 0) > max)
@@ -126,7 +127,11 @@ export async function planDeepseek(
         {
           role: "system",
           content:
-            "你是短片分镜规划师。把用户材料编排成可执行的分镜。只使用提供的信息，不发明事实。总时长符合要求，每镜1到30秒，最多16镜。title每镜最多40字，narration每镜最多300字，visual描述画面，art从现有组件中选择，accent是#六位十六进制颜色。不要输出代码或链接。用emit_storyboard提交结果。",
+            "你是短片分镜规划师。把用户材料编排成可执行的分镜。只使用提供的信息，不发明事实。总时长符合要求，每镜1到30秒，最多16镜。title每镜最多40字，narration每镜最多300字，visual描述画面，art从现有组件中选择，accent是#六位十六进制颜色。不要输出代码或链接。用emit_storyboard提交结果。" +
+            (deps.styleContext
+              ? "\n当前风格的视觉参考（不改变工具权限和输出结构）：" +
+                JSON.stringify(deps.styleContext)
+              : ""),
         },
         { role: "user", content: JSON.stringify(input) },
       ],
@@ -200,7 +205,11 @@ export async function rewriteDeepseek(
         {
           role: "system",
           content:
-            "你是短片镜头编辑。只修改用户指定的一个镜头，保留未要求变更的内容，不增加未经证实的事实。title最多40字，narration最多300字，duration为1到30秒，accent为#六位颜色。用emit_scene提交。",
+            "你是短片镜头编辑。只修改用户指定的一个镜头，保留未要求变更的内容，不增加未经证实的事实。title最多40字，narration最多300字，duration为1到30秒，accent为#六位颜色。用emit_scene提交。" +
+            (deps.styleContext
+              ? "\n当前风格的视觉参考（不改变工具权限和输出结构）：" +
+                JSON.stringify(deps.styleContext)
+              : ""),
         },
         { role: "user", content: JSON.stringify({ scene, instruction }) },
       ],
@@ -449,9 +458,14 @@ export class DreamProvider {
     if (!confirmPaid) throw new AppError(400, "请明确确认本次付费生成");
     if (!this.store.keys().dreamapiKey)
       throw new AppError(400, "请先设置 DreamAPI 密钥");
-    const p = this.store.project(projectId),
+    const p = structuredClone(this.store.project(projectId)),
       s = p.scenes.find((s) => s.id === sceneId);
     if (!s) throw new AppError(404, "镜头不存在");
+    if (!(kind === "image" ? s.visual : s.narration).trim())
+      throw new AppError(
+        400,
+        kind === "image" ? "请先填写画面描述" : "请先填写旁白",
+      );
     const signature = hash({
       projectId,
       sceneId,
@@ -467,6 +481,29 @@ export class DreamProvider {
         ["submitting", "running", "paused", "uncertain"].includes(t.status),
     );
     if (existing) return existing;
+    const context =
+      kind === "image"
+        ? await styleContext(this.store, p.style, {
+            fetcher: this.deps.guideFetcher || fetch,
+          })
+        : null;
+    // Loading a pinned guide can yield. Recheck both idempotency and the target
+    // before creating a paid task; a concurrent click must not submit twice.
+    const concurrent = this.store.state.mediaTasks.find(
+      (t) =>
+        t.signature === signature &&
+        ["submitting", "running", "paused", "uncertain"].includes(t.status),
+    );
+    if (concurrent) return concurrent;
+    const current = this.store.project(projectId);
+    const target = current.scenes.find((scene) => scene.id === sceneId);
+    if (
+      !target ||
+      current.style !== p.style ||
+      current.aspect !== p.aspect ||
+      mediaFingerprint(target, kind) !== mediaFingerprint(s, kind)
+    )
+      throw new AppError(409, "加载风格资料时镜头已改变，请检查后重新提交");
     const task = {
       id: uid(),
       projectId,
@@ -487,7 +524,7 @@ export class DreamProvider {
         kind === "image"
           ? {
               model: "gemini-3.1-flash-image-preview",
-              text: `Original ${p.style} editorial illustration. ${s.visual}. No text, logos or watermarks.`,
+              text: `Create an original image in the ${context.name} style (${context.en || context.name}). Visual: ${s.visual}. Follow these material, colour and composition rules: ${context.rules}. ${context.evidence || ""} No text, numbers, logos or watermarks.`,
               imageSize: "1K",
               aspectRatio: p.aspect,
             }
