@@ -1,8 +1,22 @@
 # Flare
 
+[English](README.md) | **简体中文**
+
 把故事做成影片。一个在本机运行的开源短片创作台。
 
 Flare 将剧本、分镜、动画预览、镜头修改和视频导出放在一个工作空间里。DeepSeek 负责可选的 AI 分镜与单镜头修改，DreamAPI 负责可选的图片和配音生成；没有密钥时，也能用本地分镜和程序动画完成影片。
+
+## 宣传视频
+
+[![观看 Flare 宣传视频](docs/assets/flare-launch-preview.gif)](https://github.com/Hy-1990/Flare/blob/main/docs/assets/flare-launch.mp4)
+
+_28 秒动图预览 · 点击打开带声音的完整视频。_
+
+[观看／下载 MP4](https://raw.githubusercontent.com/Hy-1990/Flare/main/docs/assets/flare-launch.mp4)
+
+![Flare 英文创作台](docs/assets/studio.png)
+
+宣传片使用真实界面和 Flare 原创渲染示例，经 Flare 的图片辅助渲染与导出流程完成；标题素材及最终配乐、品牌条在本地制作。详见[制作记录](docs/launch-film.md)。
 
 ## 当前版本能做什么
 
@@ -16,13 +30,21 @@ Flare 将剧本、分镜、动画预览、镜头修改和视频导出放在一�
 - 导入本地图片，或确认后使用 DreamAPI 生成单镜头图片与中文配音。
 - 配置 DeepSeek 后规划分镜，或用自然语言修改指定镜头。
 - 逐帧导出 720p / 1080p、24 fps 的 H.264 MP4，包含 AAC 音轨；同时下载 SRT 字幕和分镜 JSON。
-- 项目自动持久化；每次导出使用独立快照。支持排队、取消和重新导出。
+- 支持项目复制、删除；项目自动持久化；每次导出使用独立快照。支持排队、取消和重新导出。
+
+## 使用 DreamAPI 创作
+
+[**DreamAPI**](https://api.newportai.com/) 为 Flare 提供可选的图片与配音生成能力。为单个镜头生成画面，将旁白转成语音，再回到 Flare 调整分镜并导出成片。
+
+访问 [DreamAPI 官网](https://api.newportai.com/)，体验模型与在线 Playground、获取 API Key，然后填入 Flare 设置页。分镜规划和单镜头改写由 DeepSeek 单独提供。
 
 ## 运行
 
 需要 **Node.js 22.13+、FFmpeg 7+**。当前在 macOS Apple Silicon 上验证；Linux/Windows 尚未完成验收。
 
 ```bash
+git clone https://github.com/Hy-1990/Flare.git
+cd Flare
 npm install
 npm run setup:browser
 npm run build

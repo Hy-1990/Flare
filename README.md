@@ -4,11 +4,15 @@
 
 Flare is an open-source, local short-film workspace. Write a script, shape the storyboard, edit individual shots, preview the result and export your film—without moving between separate tools.
 
-[中文说明](README.zh-CN.md)
+**English** | [简体中文](README.zh-CN.md)
 
 ## See it in action
 
-[Watch the 28-second launch film](docs/assets/flare-launch.mp4)
+[![Watch the Flare launch film](docs/assets/flare-launch-preview.gif)](https://github.com/Hy-1990/Flare/blob/main/docs/assets/flare-launch.mp4)
+
+_28-second preview · Click to open the full video with sound._
+
+[Watch / download the MP4](https://raw.githubusercontent.com/Hy-1990/Flare/main/docs/assets/flare-launch.mp4)
 
 ![Flare's English editing workspace](docs/assets/studio.png)
 
@@ -18,11 +22,17 @@ The launch film passes through Flare's image-assisted renderer and export queue.
 
 - **Plan and revise:** local script splitting, optional DeepSeek storyboarding and natural-language revision of one shot.
 - **Direct each shot:** edit text, duration, composition, color and artwork; reorder, add, delete or undo individual shots.
-- **Bring your visuals:** import images or generate images and narration through DreamAPI with your own keys.
+- **Bring your visuals:** import images or generate images and narration through [DreamAPI](https://api.newportai.com/) with your own keys.
 - **Explore styles:** 99 upstream style references, demo links and production guides. Eight have basic procedural renderers; the other 91 require images. Flare also includes three original procedural styles.
 - **Preview and export:** landscape, portrait or square; 720p/1080p H.264 MP4 at 24 fps, AAC audio, SRT subtitles and project JSON.
 - **Work locally:** persistent projects, duplication, deletion, immutable export snapshots, queueing and cancellation.
 - **Choose your workspace:** English/Chinese, light/dark/system appearance and locally loaded fonts.
+
+## Create with DreamAPI
+
+[**DreamAPI**](https://api.newportai.com/) powers Flare’s optional image and narration generation. Generate visuals for individual shots and turn narration into speech, then edit and export the result in Flare.
+
+Visit the [DreamAPI website](https://api.newportai.com/) to explore its playground and models, get your API key, and add it in Flare’s Settings. DeepSeek handles storyboarding and shot rewrites separately.
 
 ## Run locally
 
