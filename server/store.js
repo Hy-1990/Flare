@@ -141,6 +141,9 @@ export class Store {
     return {
       deepseekKey:
         process.env.DEEPSEEK_API_KEY || this.settings.deepseekKey || "",
+      openaiKey: process.env.OPENAI_API_KEY || this.settings.openaiKey || "",
+      anthropicKey:
+        process.env.ANTHROPIC_API_KEY || this.settings.anthropicKey || "",
       dreamapiKey:
         process.env.DREAMAPI_API_KEY || this.settings.dreamapiKey || "",
     };
@@ -149,13 +152,31 @@ export class Store {
     const k = this.keys();
     return {
       deepseekConfigured: !!k.deepseekKey,
+      openaiConfigured: !!k.openaiKey,
+      anthropicConfigured: !!k.anthropicKey,
+      textProvider: this.settings.textProvider || "deepseek",
+      openaiModel: this.settings.openaiModel || "",
+      anthropicModel: this.settings.anthropicModel || "",
+      codexModel: this.settings.codexModel || "",
+      claudeModel: this.settings.claudeModel || "",
       dreamapiConfigured: !!k.dreamapiKey,
       model: this.settings.model || "deepseek-flash",
       liveVerification: "尚未进行真实付费接口验收",
     };
   }
   saveSettings(patch) {
-    for (const k of ["deepseekKey", "dreamapiKey", "model"])
+    for (const k of [
+      "deepseekKey",
+      "dreamapiKey",
+      "model",
+      "openaiKey",
+      "anthropicKey",
+      "textProvider",
+      "openaiModel",
+      "anthropicModel",
+      "codexModel",
+      "claudeModel",
+    ])
       if (Object.hasOwn(patch, k)) {
         if (patch[k] === null) delete this.settings[k];
         else this.settings[k] = patch[k];

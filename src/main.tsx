@@ -1,3 +1,6 @@
+import { ModelPicker, SettingsSelect } from "./ModelPicker";
+import { editImpact } from "../shared/editing.js";
+import { TEXT_PROVIDERS, MODEL_OPTIONS } from "../shared/providers.js";
 import {
   t as tr,
   usePreferences,
@@ -141,6 +144,19 @@ function App() {
   const [deleteTarget, setDeleteTarget] = useState<Project | null>(null),
     [deleting, setDeleting] = useState(false),
     [deleteError, setDeleteError] = useState("");
+  const [visualLock, setVisualLock] = useState(false),
+    [impactAccepted, setImpactAccepted] = useState(false);
+  useEffect(() => {
+    setVisualLock(false);
+    setImpactAccepted(false);
+  }, [id, selected]);
+  useEffect(() => {
+    setImpactAccepted(false);
+  }, [draft?.duration, draft?.narration]);
+  const providerLabel =
+    TEXT_PROVIDERS[
+      (settings?.textProvider || "deepseek") as keyof typeof TEXT_PROVIDERS
+    ]?.label || "AI";
   const sceneBase = useRef<Scene | null>(null);
   const fileInput = useRef<HTMLInputElement>(null),
     importInput = useRef<HTMLInputElement>(null),
@@ -154,6 +170,13 @@ function App() {
       draft &&
       JSON.stringify(scene) !== JSON.stringify(draft)
     );
+  const impact =
+    scene && draft
+      ? editImpact(scene, draft)
+      : { delta: 0, removesVoice: false, narrationChanged: false };
+  const impactNeedsAck = !!impact.delta || impact.narrationChanged;
+  const draftContext = useRef("");
+  draftContext.current = JSON.stringify({ id, sceneId: scene?.id, draft });
   const toast = useCallback(
     (text: string, error = false) => setNotice({ text, error }),
     [],
@@ -352,9 +375,43 @@ function App() {
   }
   async function saveDraft() {
     if (!dirty || !draft) return project;
-    const p = await update({
-      scenes: project.scenes.map((s, i) => (i === selected ? draft : s)),
-    });
+    if (!visualLock && impactNeedsAck && !impactAccepted) {
+      toast(tr("请先确认修改对时序和配音的影响"), true);
+      return null;
+    }
+    let p: Project | null | undefined;
+    if (visualLock) {
+      setSaving(true);
+      try {
+        p = await api<Project>(
+          `/api/projects/${project.id}/scenes/${draft.id}/visual`,
+          send("PATCH", {
+            revision: project.revision,
+            visual: draft.visual,
+            art: draft.art,
+            accent: draft.accent,
+            image: draft.image,
+          }),
+        );
+        putProject(p);
+      } catch (e) {
+        toast((e as Error).message, true);
+        return null;
+      } finally {
+        setSaving(false);
+      }
+    } else {
+      p = await update({
+        scenes: project.scenes.map((s, i) =>
+          i === selected
+            ? {
+                ...draft,
+                audio: impact.narrationChanged ? undefined : draft.audio,
+              }
+            : s,
+        ),
+      });
+    }
     if (p) toast(tr("镜头已保存，预览已更新"));
     return p;
   }
@@ -437,13 +494,39 @@ function App() {
     }
   }
   async function undo() {
+    if (dirty) {
+      setDraft({ ...scene });
+      setImpactAccepted(false);
+      return;
+    }
     try {
-      putProject(
-        await api<Project>(
-          `/api/projects/${project.id}/undo/${scene.id}`,
-          send("POST", { revision: project.revision }),
-        ),
+      const url = `/api/projects/${project.id}/undo/${scene.id}`;
+      const payload = { revision: project.revision, visualOnly: visualLock };
+      const candidate = await api<{ scene: Scene }>(
+        url,
+        send("POST", { ...payload, preview: true }),
       );
+      const impact = editImpact(scene, candidate.scene);
+      if (
+        impact.delta ||
+        impact.narrationChanged ||
+        scene.audio !== candidate.scene.audio
+      ) {
+        const message = [
+          tr("撤销将恢复旧镜头内容。"),
+          impact.delta
+            ? `${tr("本镜头及影片时长变化")} ${impact.delta > 0 ? "+" : ""}${impact.delta}s · ${tr("后续镜头和字幕将同步移动")}`
+            : "",
+          impact.narrationChanged || scene.audio !== candidate.scene.audio
+            ? tr("旁白、字幕或配音也将恢复为旧版本。")
+            : "",
+          tr("确认撤销？"),
+        ]
+          .filter(Boolean)
+          .join("\n");
+        if (!window.confirm(message)) return;
+      }
+      putProject(await api<Project>(url, send("POST", payload)));
       toast(tr("已撤销此镜头的上一次修改"));
     } catch (e) {
       toast((e as Error).message, true);
@@ -685,11 +768,11 @@ function App() {
             onClick={() => setModal("settings")}
           >
             <span
-              className={`status-dot ${settings?.deepseekConfigured ? "connected" : ""}`}
+              className={`status-dot ${settings?.textConfigured ? "connected" : ""}`}
             />
             <span>
-              {settings?.deepseekConfigured
-                ? tr("DeepSeek 已配置")
+              {settings?.textConfigured
+                ? `${providerLabel} · ${tr("已配置")}`
                 : tr("本地制作模式")}
             </span>
             <Settings2 />
@@ -722,8 +805,15 @@ function App() {
                   <span>{timecode(duration)}</span>
                   <i />
                   <span>
-                    {project.source === "deepseek"
-                      ? tr("DeepSeek 分镜")
+                    {[
+                      "deepseek",
+                      "ai",
+                      "openai",
+                      "anthropic",
+                      "codex",
+                      "claude",
+                    ].includes(project.source)
+                      ? `${TEXT_PROVIDERS[project.source as keyof typeof TEXT_PROVIDERS]?.label || "AI"} · ${tr("分镜")}`
                       : tr("本地分镜")}
                   </span>
                 </div>
@@ -899,11 +989,26 @@ function App() {
                     </span>
                   </div>
                   <div className="inspector-scroll">
+                    <label className="visual-lock">
+                      <input
+                        type="checkbox"
+                        checked={visualLock}
+                        disabled={dirty || aiBusy}
+                        onChange={(e) => setVisualLock(e.target.checked)}
+                      />
+                      <span>{tr("只换画面，锁定时序")}</span>
+                    </label>
+                    <p className="field-hint">
+                      {tr(
+                        "保留镜头时长、旁白、配音和字幕时间。先保存或撤销草稿，再切换模式。",
+                      )}
+                    </p>
                     <div className="field-row">
                       <label>
                         {tr("时长")}
                         <span>{tr("秒")}</span>
                         <input
+                          disabled={visualLock}
                           aria-label={tr("镜头时长")}
                           type="number"
                           min="1"
@@ -933,6 +1038,7 @@ function App() {
                     <label className="field">
                       {tr("镜头标题")}
                       <input
+                        disabled={visualLock}
                         aria-label={tr("镜头标题")}
                         value={draft.title}
                         maxLength={40}
@@ -944,6 +1050,7 @@ function App() {
                     <label className="field">
                       {tr("旁白与字幕")}
                       <textarea
+                        disabled={visualLock}
                         aria-label={tr("旁白与字幕")}
                         rows={3}
                         maxLength={300}
@@ -1015,20 +1122,30 @@ function App() {
                       className="button secondary ai-rewrite"
                       disabled={aiBusy || aiInstruction.trim().length < 2}
                       onClick={async () => {
-                        if (!settings?.deepseekConfigured) {
+                        if (!settings?.textConfigured) {
                           setModal("settings");
                           return;
                         }
                         if (dirty && !(await saveDraft())) return;
+                        const requestContext = draftContext.current;
                         setAiBusy(true);
                         try {
-                          const p = await api<Project>(
+                          const result = await api<{
+                            scene: Scene;
+                            revision: number;
+                          }>(
                             `/api/projects/${project.id}/scenes/${scene.id}/rewrite`,
-                            send("POST", { instruction: aiInstruction }),
+                            send("POST", {
+                              instruction: aiInstruction,
+                              visualOnly: visualLock,
+                              preview: true,
+                            }),
                           );
-                          putProject(p);
+                          if (draftContext.current !== requestContext)
+                            throw Error(tr("草稿已改变，请重新生成修改"));
+                          setDraft(result.scene);
                           setAiInstruction("");
-                          toast(tr("已修改当前镜头，其他镜头保持原样"));
+                          toast(tr("修改已生成，请检查后应用"));
                         } catch (e) {
                           toast((e as Error).message, true);
                         } finally {
@@ -1041,7 +1158,11 @@ function App() {
                       ) : (
                         <SlidersHorizontal />
                       )}
-                      {aiBusy ? tr("正在修改") : tr("用 DeepSeek 修改")}
+                      {aiBusy
+                        ? tr("正在修改")
+                        : settings?.textProvider === "deepseek"
+                          ? tr("用 DeepSeek 修改")
+                          : `${tr("使用模型修改")} · ${providerLabel}`}
                     </button>
                     <div className="inspector-divider" />
                     <div className="section-heading no-margin">
@@ -1070,6 +1191,7 @@ function App() {
                     </div>
                     <button
                       className="text-action voice-action"
+                      disabled={visualLock}
                       onClick={() =>
                         settings?.dreamapiConfigured
                           ? setPaid("audio")
@@ -1103,6 +1225,7 @@ function App() {
                         <button
                           className="small-icon"
                           aria-label={tr("移除配音")}
+                          disabled={visualLock}
                           onClick={() =>
                             setDraft({ ...draft, audio: undefined })
                           }
@@ -1142,6 +1265,7 @@ function App() {
                           {t.asset && !t.applied && (
                             <button
                               className="text-action retained-asset"
+                              disabled={visualLock && t.kind !== "image"}
                               onClick={() => {
                                 setDraft((d) =>
                                   d
@@ -1199,11 +1323,47 @@ function App() {
                       </div>
                     ))}
                   </div>
+                  {!visualLock && impactNeedsAck && (
+                    <div className="edit-impact" role="status">
+                      {!!impact.delta && (
+                        <p>
+                          {tr("本镜头及影片时长变化")}{" "}
+                          {impact.delta > 0 ? "+" : ""}
+                          {impact.delta}s · {tr("后续镜头和字幕将同步移动")}
+                        </p>
+                      )}
+                      {impact.narrationChanged && !impact.removesVoice && (
+                        <p>
+                          {tr(
+                            "旁白与字幕内容将更新，字幕时间仍由镜头时长决定。",
+                          )}
+                        </p>
+                      )}
+                      {impact.removesVoice && (
+                        <p>
+                          {tr(
+                            "旁白已改变，旧配音将解除关联，需要重新生成配音。",
+                          )}
+                        </p>
+                      )}
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={impactAccepted}
+                          onChange={(e) => setImpactAccepted(e.target.checked)}
+                        />{" "}
+                        {tr("我已了解这些影响")}
+                      </label>
+                    </div>
+                  )}
                   <div className="inspector-bottom">
                     <button
                       className="icon-button"
                       aria-label={tr("撤销镜头修改")}
-                      disabled={saving || !project.canUndo?.includes(scene.id)}
+                      disabled={
+                        saving ||
+                        (!dirty && !project.canUndo?.includes(scene.id))
+                      }
                       onClick={undo}
                     >
                       <Undo2 />
@@ -1490,7 +1650,8 @@ function App() {
       {modal === "new" && (
         <NewProjectModal
           onClose={closeModal}
-          configured={!!settings?.deepseekConfigured}
+          configured={!!settings?.textConfigured}
+          providerLabel={providerLabel}
           initialStyle={newStyle}
           onCreate={(p) => {
             putProject(p);
@@ -1510,7 +1671,6 @@ function App() {
           onClose={closeModal}
           onSave={(s) => {
             setSettings(s);
-            toast(tr("设置已保存"));
           }}
         />
       )}
@@ -1559,7 +1719,7 @@ function App() {
             <h3>{tr("本地模式与 AI 模式")}</h3>
             <p>
               {tr(
-                "本地模式按你的原文分段并匹配动画组件，不会自动理解或改写剧本。配置 DeepSeek 后，可以使用 AI 规划分镜。DreamAPI 图片与配音仅在你确认后付费生成。",
+                "本地模式按原文分段并匹配动画组件。可在设置中选择 DeepSeek、GPT、Claude API 或本地 CLI 来规划分镜和修改镜头。DreamAPI 图片与配音在确认后生成。",
               )}
             </p>
             <h3>{tr("关于导出")}</h3>
@@ -1654,11 +1814,13 @@ function FilmViewer({ project, time }: { project: Project; time: number }) {
 function NewProjectModal({
   onClose,
   configured,
+  providerLabel,
   initialStyle = "paper",
   onCreate,
 }: {
   onClose: () => void;
   configured: boolean;
+  providerLabel: string;
   initialStyle?: Style;
   onCreate: (p: Project) => void;
 }) {
@@ -1775,7 +1937,8 @@ function NewProjectModal({
             >
               <option value="local">{tr("本地分镜")}</option>
               <option value="deepseek" disabled={!configured}>
-                DeepSeek{!configured ? tr(" · 需配置密钥") : ""}
+                {providerLabel}
+                {!configured ? tr(" · 需配置密钥") : ""}
               </option>
             </select>
           </label>
@@ -1783,7 +1946,7 @@ function NewProjectModal({
         <p className="field-hint">
           {mode === "local"
             ? tr("本地分镜按原文分段，不调用模型，不产生 API 费用。")
-            : tr("DeepSeek 会根据剧本规划分镜，本次调用使用你的账户额度。")}
+            : tr("所选模型会根据剧本规划分镜，本次调用使用你的账户额度。")}
         </p>
         {error && (
           <p role="alert" className="inline-error">
@@ -1818,34 +1981,59 @@ function SettingsModal({
   onClose: () => void;
   onSave: (s: Settings) => void;
 }) {
+  const [textProvider, setTextProvider] = useState(
+    settings.textProvider || "deepseek",
+  );
+  const [extraKeys, setExtraKeys] = useState({
+    openaiKey: "",
+    anthropicKey: "",
+  });
+  const [extraModels, setExtraModels] = useState({
+    openaiModel: settings.openaiModel || MODEL_OPTIONS.openai[0].id,
+    anthropicModel: settings.anthropicModel || MODEL_OPTIONS.anthropic[0].id,
+    codexModel: settings.codexModel,
+    claudeModel: settings.claudeModel,
+  });
   const [deepseek, setDeepseek] = useState(""),
     [dream, setDream] = useState(""),
     [model, setModel] = useState(settings.model),
     [error, setError] = useState(""),
-    [busy, setBusy] = useState(false);
+    [busy, setBusy] = useState(false),
+    [saved, setSaved] = useState(false);
   async function save(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
+    setError("");
+    setSaved(false);
     try {
       onSave(
         await api<Settings>(
           "/api/settings",
           send("PATCH", {
+            textProvider,
+            ...extraModels,
+            ...Object.fromEntries(
+              Object.entries(extraKeys).filter(([, v]) => v),
+            ),
             ...(deepseek ? { deepseekKey: deepseek } : {}),
             ...(dream ? { dreamapiKey: dream } : {}),
             model,
           }),
         ),
       );
+      setExtraKeys({ openaiKey: "", anthropicKey: "" });
       setDeepseek("");
       setDream("");
+      setSaved(true);
     } catch (e) {
       setError((e as Error).message);
     } finally {
       setBusy(false);
     }
   }
-  async function clear(key: "deepseekKey" | "dreamapiKey") {
+  async function clear(
+    key: "deepseekKey" | "dreamapiKey" | "openaiKey" | "anthropicKey",
+  ) {
     try {
       onSave(await api("/api/settings", send("PATCH", { [key]: null })));
     } catch (e) {
@@ -1854,56 +2042,153 @@ function SettingsModal({
   }
   return (
     <Modal title={tr("模型与制作设置")} onClose={onClose}>
-      <form className="modal-body" onSubmit={save}>
+      <form
+        className="modal-body settings-form"
+        onSubmit={save}
+        onChange={() => setSaved(false)}
+      >
         <p className="settings-intro">
           {tr("不配置密钥，也能使用本地分镜、动画预览和视频导出。")}
         </p>
-        <div className="provider-heading">
-          <h3>DeepSeek</h3>
-          <span
-            className={
-              settings.deepseekConfigured ? "configured" : "not-configured"
-            }
-          >
-            {settings.deepseekConfigured ? tr("已配置") : tr("未配置")}
-          </span>
-        </div>
-        <p className="field-hint">
-          {tr(
-            "理解剧本、规划镜头。密钥只保存在本机服务端文件中，不会写入项目或浏览器存储。",
-          )}
-        </p>
         <label className="field">
-          API Key
-          <input
-            type="password"
-            autoComplete="off"
-            aria-label="DeepSeek API Key"
-            value={deepseek}
-            placeholder={
-              settings.deepseekConfigured
-                ? tr("留空保留现有密钥")
-                : tr("输入你的 DeepSeek Key")
-            }
-            onChange={(e) => setDeepseek(e.target.value)}
-          />
-        </label>
-        <label className="field">
-          {tr("模型名称")}
-          <input
-            aria-label={tr("DeepSeek 模型")}
-            value={model}
-            onChange={(e) => setModel(e.target.value)}
-          />
-        </label>
-        {settings.deepseekConfigured && (
-          <button
-            className="text-action danger"
-            type="button"
-            onClick={() => clear("deepseekKey")}
+          {tr("分镜与改写模型")}
+          <SettingsSelect
+            aria-label={tr("分镜与改写模型")}
+            value={textProvider}
+            onChange={(e) => setTextProvider(e.target.value)}
           >
-            {tr("移除 DeepSeek 密钥")}
-          </button>
+            {Object.entries(TEXT_PROVIDERS).map(([id, p]) => (
+              <option key={id} value={id}>
+                {p.label}
+              </option>
+            ))}
+          </SettingsSelect>
+        </label>
+        {textProvider !== "deepseek" && (
+          <div className="text-provider-config">
+            {["openai", "anthropic"].includes(textProvider) ? (
+              <>
+                <label className="field">
+                  API Key
+                  <input
+                    type="password"
+                    autoComplete="off"
+                    aria-label={`${textProvider} API Key`}
+                    value={
+                      extraKeys[
+                        textProvider === "openai" ? "openaiKey" : "anthropicKey"
+                      ]
+                    }
+                    placeholder={tr("留空保留现有密钥")}
+                    onChange={(e) =>
+                      setExtraKeys({
+                        ...extraKeys,
+                        [textProvider === "openai"
+                          ? "openaiKey"
+                          : "anthropicKey"]: e.target.value,
+                      })
+                    }
+                  />
+                </label>
+                <p className="field-hint">
+                  {(
+                    textProvider === "openai"
+                      ? settings.openaiConfigured
+                      : settings.anthropicConfigured
+                  )
+                    ? tr("已配置")
+                    : tr("未配置")}
+                </p>
+                <button
+                  className="text-action danger"
+                  type="button"
+                  onClick={() =>
+                    clear(
+                      textProvider === "openai" ? "openaiKey" : "anthropicKey",
+                    )
+                  }
+                >
+                  {tr("移除所选服务密钥")}
+                </button>
+              </>
+            ) : (
+              <p className="field-hint">
+                {settings.cliAvailable?.[textProvider as "codex" | "claude"]
+                  ? tr("已检测到本地 CLI，请确保已在终端登录。")
+                  : tr("未检测到 CLI，请安装并登录后重新打开设置。")}
+              </p>
+            )}
+            <ModelPicker
+              key={textProvider}
+              provider={textProvider as keyof typeof MODEL_OPTIONS}
+              value={
+                extraModels[
+                  (textProvider + "Model") as keyof typeof extraModels
+                ]
+              }
+              onChange={(value) =>
+                setExtraModels({
+                  ...extraModels,
+                  [textProvider + "Model"]: value,
+                })
+              }
+            />
+            {["codex", "claude"].includes(textProvider) && (
+              <p className="field-hint">
+                {tr(
+                  "CLI 在本机启动，但仍调用云端模型并使用已登录账户额度。仅发送剧本与所选风格上下文。",
+                )}
+              </p>
+            )}
+          </div>
+        )}
+        {textProvider === "deepseek" && (
+          <div className="text-provider-config">
+            <div className="provider-heading">
+              <h3>DeepSeek</h3>
+              <span
+                className={
+                  settings.deepseekConfigured ? "configured" : "not-configured"
+                }
+              >
+                {settings.deepseekConfigured ? tr("已配置") : tr("未配置")}
+              </span>
+            </div>
+            <p className="field-hint">
+              {tr(
+                "理解剧本、规划镜头。密钥只保存在本机服务端文件中，不会写入项目或浏览器存储。",
+              )}
+            </p>
+            <label className="field">
+              API Key
+              <input
+                type="password"
+                autoComplete="off"
+                aria-label="DeepSeek API Key"
+                value={deepseek}
+                placeholder={
+                  settings.deepseekConfigured
+                    ? tr("留空保留现有密钥")
+                    : tr("输入你的 DeepSeek Key")
+                }
+                onChange={(e) => setDeepseek(e.target.value)}
+              />
+            </label>
+            <ModelPicker
+              provider="deepseek"
+              value={model}
+              onChange={setModel}
+            />
+            {settings.deepseekConfigured && (
+              <button
+                className="text-action danger"
+                type="button"
+                onClick={() => clear("deepseekKey")}
+              >
+                {tr("移除 DeepSeek 密钥")}
+              </button>
+            )}
+          </div>
         )}
         <div className="inspector-divider" />
         <div className="provider-heading">
@@ -1968,6 +2253,9 @@ function SettingsModal({
           </p>
         )}
         <div className="modal-actions">
+          <span className="settings-save-status" role="status">
+            {saved ? tr("设置已保存") : ""}
+          </span>
           <button type="button" className="button secondary" onClick={onClose}>
             {tr("完成")}
           </button>

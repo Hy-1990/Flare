@@ -1,3 +1,6 @@
+import { SceneSchema } from "../shared/model.js";
+import { planText, rewriteText, textStatus } from "./text-models.js";
+import { visualOnly } from "../shared/editing.js";
 import express from "express";
 import fs from "node:fs";
 import path from "node:path";
@@ -10,12 +13,7 @@ import {
   makeSrt,
 } from "../shared/model.js";
 import { Store, AppError, uid, contentOf, hash } from "./store.js";
-import {
-  DreamProvider,
-  planDeepseek,
-  rewriteDeepseek,
-  imageExtension,
-} from "./providers.js";
+import { DreamProvider, imageExtension } from "./providers.js";
 import { ExportQueue, browserPath } from "./render.js";
 import {
   STYLES,
@@ -33,6 +31,22 @@ import {
 const ID = z.string().regex(/^[a-zA-Z0-9_-]{1,64}$/);
 const Settings = z
   .object({
+    textProvider: z
+      .enum(["deepseek", "openai", "anthropic", "codex", "claude"])
+      .optional(),
+    openaiKey: z.union([z.string().min(8).max(400), z.null()]).optional(),
+    anthropicKey: z.union([z.string().min(8).max(400), z.null()]).optional(),
+    ...Object.fromEntries(
+      ["openaiModel", "anthropicModel", "codexModel", "claudeModel"].map(
+        (k) => [
+          k,
+          z
+            .string()
+            .regex(/^[a-zA-Z0-9_.:/-]{0,100}$/)
+            .optional(),
+        ],
+      ),
+    ),
     deepseekKey: z.union([z.string().min(8).max(400), z.null()]).optional(),
     dreamapiKey: z.union([z.string().min(8).max(400), z.null()]).optional(),
     model: z
@@ -110,7 +124,9 @@ export async function createApp({
       localOnly: true,
     });
   });
-  app.get("/api/settings", (_req, res) => res.json(store.publicSettings()));
+  app.get("/api/settings", (_req, res) =>
+    res.json({ ...store.publicSettings(), ...textStatus(store) }),
+  );
   app.get("/api/styles", (_req, res) =>
     res.json({ styles: STYLES, categories: CATEGORIES, source: STYLE_SOURCE }),
   );
@@ -143,7 +159,10 @@ export async function createApp({
   );
   app.patch(
     "/api/settings",
-    wrap((req, res) => res.json(store.saveSettings(Settings.parse(req.body)))),
+    wrap((req, res) => {
+      store.saveSettings(Settings.parse(req.body));
+      res.json({ ...store.publicSettings(), ...textStatus(store) });
+    }),
   );
   app.get("/api/projects", (_req, res) =>
     res.json(store.state.projects.map(safeProject)),
@@ -161,18 +180,24 @@ export async function createApp({
       const content =
         brief.mode === "local"
           ? localPlan(brief)
-          : await planDeepseek(
-              brief,
-              store.keys().deepseekKey,
-              store.settings.model,
-              {
-                ...providerDeps,
-                styleContext: await styleContext(store, brief.style, {
-                  fetcher: providerDeps.guideFetcher || fetch,
-                }),
-              },
-            );
-      res.status(201).json(safeProject(store.create(content, brief.mode)));
+          : await planText(brief, store, {
+              ...providerDeps,
+              styleContext: await styleContext(store, brief.style, {
+                fetcher: providerDeps.guideFetcher || fetch,
+              }),
+            });
+      res
+        .status(201)
+        .json(
+          safeProject(
+            store.create(
+              content,
+              brief.mode === "local"
+                ? "local"
+                : store.settings.textProvider || "deepseek",
+            ),
+          ),
+        );
     }),
   );
   app.post(
@@ -212,24 +237,74 @@ export async function createApp({
   );
   app.post(
     "/api/projects/:id/undo/:sceneId",
-    wrap((req, res) =>
-      res.json(
-        safeProject(
-          store.undo(
-            ID.parse(req.params.id),
-            ID.parse(req.params.sceneId),
-            z.object({ revision: z.number().int().positive() }).parse(req.body)
-              .revision,
-          ),
-        ),
-      ),
-    ),
+    wrap((req, res) => {
+      const {
+        revision,
+        preview,
+        visualOnly: locked,
+      } = z
+        .object({
+          revision: z.number().int().positive(),
+          preview: z.boolean().default(false),
+          visualOnly: z.boolean().default(false),
+        })
+        .parse(req.body);
+      const id = ID.parse(req.params.id),
+        sceneId = ID.parse(req.params.sceneId),
+        p = store.project(id);
+      if (p.revision !== revision)
+        throw new AppError(409, "项目已更新，请刷新后重试");
+      const current = p.scenes.find((s) => s.id === sceneId),
+        before = p.history.findLast((h) => h.sceneId === sceneId)?.before;
+      if (!current || !before)
+        throw new AppError(400, "这个镜头没有可撤销的修改");
+      if (
+        locked &&
+        ["title", "duration", "narration", "audio"].some(
+          (key) => current[key] !== before[key],
+        )
+      )
+        throw new AppError(409, "这次撤销会改变锁定内容，请先关闭只换画面模式");
+      if (preview) return res.json({ scene: before, revision: p.revision });
+      res.json(safeProject(store.undo(id, sceneId, revision)));
+    }),
+  );
+  app.patch(
+    "/api/projects/:id/scenes/:sceneId/visual",
+    wrap((req, res) => {
+      const { revision, visual, art, accent, image } = SceneSchema.pick({
+        visual: true,
+        art: true,
+        accent: true,
+        image: true,
+      })
+        .extend({ revision: z.number().int().positive() })
+        .strict()
+        .parse(req.body);
+      const p = store.project(ID.parse(req.params.id)),
+        target = p.scenes.find((s) => s.id === ID.parse(req.params.sceneId));
+      if (!target) throw new AppError(404, "镜头不存在");
+      const content = contentOf(p);
+      content.scenes = content.scenes.map((s) =>
+        s.id === target.id ? visualOnly(s, { visual, art, accent, image }) : s,
+      );
+      mediaExists(content);
+      res.json(safeProject(store.update(p.id, revision, content)));
+    }),
   );
   app.post(
     "/api/projects/:id/scenes/:sceneId/rewrite",
     wrap(async (req, res) => {
-      const { instruction } = z
-          .object({ instruction: z.string().trim().min(2).max(2000) })
+      const {
+          instruction,
+          visualOnly: locked,
+          preview,
+        } = z
+          .object({
+            instruction: z.string().trim().min(2).max(2000),
+            visualOnly: z.boolean().default(false),
+            preview: z.boolean().default(false),
+          })
           .parse(req.body),
         id = ID.parse(req.params.id),
         sceneId = ID.parse(req.params.sceneId),
@@ -237,11 +312,13 @@ export async function createApp({
         s = p.scenes.find((s) => s.id === sceneId);
       if (!s) throw new AppError(404, "镜头不存在");
       const signature = hash(s),
-        next = await rewriteDeepseek(
+        next = await rewriteText(
           structuredClone(s),
-          instruction,
-          store.keys().deepseekKey,
-          store.settings.model,
+          locked
+            ? "Only change visual, art and accent. Keep all other fields unchanged. " +
+                instruction
+            : instruction,
+          store,
           {
             ...providerDeps,
             styleContext: await styleContext(store, p.style, {
@@ -253,8 +330,13 @@ export async function createApp({
         target = current.scenes.find((s) => s.id === sceneId);
       if (!target || hash(target) !== signature)
         throw new AppError(409, "镜头已修改，本次 AI 结果未覆盖你的新内容");
+      const candidate = locked ? visualOnly(target, next) : next;
+      if (preview)
+        return res.json({ scene: candidate, revision: current.revision });
       const content = contentOf(current);
-      content.scenes = content.scenes.map((s) => (s.id === sceneId ? next : s));
+      content.scenes = content.scenes.map((s) =>
+        s.id === sceneId ? candidate : s,
+      );
       res.json(safeProject(store.update(id, current.revision, content)));
     }),
   );

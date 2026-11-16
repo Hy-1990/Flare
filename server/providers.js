@@ -118,7 +118,7 @@ export async function planDeepseek(
     required: ["title", "scenes"],
     additionalProperties: false,
   };
-  const data = await jsonRequest(
+  const data = await (deps.request || jsonRequest)(
     `${deps.baseUrl || "https://api.deepseek.com"}/chat/completions`,
     key,
     {
@@ -158,10 +158,7 @@ export async function planDeepseek(
     if (!call) throw Error();
     raw = Planned.parse(JSON.parse(call.function.arguments));
   } catch {
-    throw new AppError(
-      502,
-      "DeepSeek 返回的分镜不符合格式，请重试或使用本地分镜",
-    );
+    throw new AppError(502, "模型返回的分镜不符合格式，请重试或使用本地分镜");
   }
   if (
     Math.abs(raw.scenes.reduce((n, s) => n + s.duration, 0) - input.duration) >
@@ -197,7 +194,7 @@ export async function rewriteDeepseek(
     },
     accent: { type: "string" },
   };
-  const data = await jsonRequest(
+  const data = await (deps.request || jsonRequest)(
     `${deps.baseUrl || "https://api.deepseek.com"}/chat/completions`,
     key,
     {
@@ -241,7 +238,7 @@ export async function rewriteDeepseek(
     );
     result = PlannedScene.parse(JSON.parse(call.function.arguments));
   } catch {
-    throw new AppError(502, "DeepSeek 返回的镜头格式无效，原镜头未修改");
+    throw new AppError(502, "模型返回的镜头格式无效，原镜头未修改");
   }
   return {
     ...scene,

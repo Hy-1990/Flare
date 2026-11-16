@@ -4,7 +4,7 @@
 
 把故事做成影片。一个在本机运行的开源短片创作台。
 
-Flare 将剧本、分镜、动画预览、镜头修改和视频导出放在一个工作空间里。DeepSeek 负责可选的 AI 分镜与单镜头修改，DreamAPI 负责可选的图片和配音生成；没有密钥时，也能用本地分镜和程序动画完成影片。
+Flare 将剧本、分镜、动画预览、镜头修改和视频导出放在一个工作空间里。DeepSeek、GPT 或 Claude 负责可选的 AI 分镜与单镜头修改，DreamAPI 负责可选的图片和配音生成；没有密钥时，也能用本地分镜和程序动画完成影片。
 
 ## 宣传视频
 
@@ -28,7 +28,8 @@ _28 秒动图预览 · 点击打开带声音的完整视频。_
 - 界面支持中文／English；白天、黑夜或跟随系统外观。偏好保存在当前浏览器中，不修改剧本、素材、成片或原版规范。
 - 界面字体采用 Source Sans 3、Noto Sans SC 和用于时间码的 IBM Plex Mono，均在本地加载。
 - 导入本地图片，或确认后使用 DreamAPI 生成单镜头图片与中文配音。
-- 配置 DeepSeek 后规划分镜，或用自然语言修改指定镜头。
+- 可选 DeepSeek、GPT/OpenAI API、Claude/Anthropic API，或调用本机已登录的 Codex / Claude CLI 规划分镜、修改镜头。
+- 「只换画面」锁定时长、旁白、配音与字幕时间。AI 改写先形成草稿；修改时长或旁白、撤销相关修改前均提示影响。
 - 逐帧导出 720p / 1080p、24 fps 的 H.264 MP4，包含 AAC 音轨；同时下载 SRT 字幕和分镜 JSON。
 - 支持项目复制、删除；项目自动持久化；每次导出使用独立快照。支持排队、取消和重新导出。
 
@@ -36,7 +37,7 @@ _28 秒动图预览 · 点击打开带声音的完整视频。_
 
 [**DreamAPI**](https://api.newportai.com/) 为 Flare 提供可选的图片与配音生成能力。为单个镜头生成画面，将旁白转成语音，再回到 Flare 调整分镜并导出成片。
 
-访问 [DreamAPI 官网](https://api.newportai.com/)，体验模型与在线 Playground、获取 API Key，然后填入 Flare 设置页。分镜规划和单镜头改写由 DeepSeek 单独提供。
+访问 [DreamAPI 官网](https://api.newportai.com/)，体验模型与在线 Playground、获取 API Key，然后填入 Flare 设置页。分镜规划和单镜头改写由所选文本模型提供。
 
 ## 运行
 
@@ -69,12 +70,14 @@ npm start
 
 ## 密钥与费用
 
-界面右上角的设置可分别保存 DeepSeek 和 DreamAPI Key；留空保留已有值。也支持服务启动环境中的 `DEEPSEEK_API_KEY`、`DREAMAPI_API_KEY`，环境值优先。
+在设置中选择分镜与改写模型。API 模式填写密钥后可从下拉列表选择模型，也保留自定义模型入口；密钥留空保留已有值。支持 `DEEPSEEK_API_KEY`、`OPENAI_API_KEY`、`ANTHROPIC_API_KEY`、`DREAMAPI_API_KEY`，环境值优先。
+
+CLI 模式先安装新版 Codex / Claude CLI 并在终端登录。Flare 从 PATH 或 `~/.local/bin` 检测程序，模型选择「CLI · 默认」即可，不需要填写模型名称。它在独立临时会话中调用模型，关闭工具并校验分镜数据，不把 Flare 嵌入编程助手。CLI 仍访问云端并消耗登录账户额度，不是离线模型。
 
 密钥保存在 `.flare/settings.json`，文件权限为 `600`，**没有加密**。密钥不会写入项目、字幕、导出快照或浏览器存储，接口只返回是否配置。不要共享 `.flare/settings.json` 或包含它的备份。移除界面中的密钥不改变外部环境变量。
 
 - 本地分镜和程序动画导出不调用模型。
-- 选择 DeepSeek 分镜或点击「用 DeepSeek 修改」会消耗你的 DeepSeek 账户额度。
+- AI 规划与改写使用所选 API 或 CLI 账户额度。
 - DreamAPI 每次图片／配音提交前都有确认。生成失败不会自动重新付费提交。
 - 查询中断后可恢复原任务；提交结果不确定时先到 DreamAPI 控制台核对，避免重复付费。
 - 核对控制台后可在任务提示中标记已核对；再次生成仍需重新确认付费。因镜头已改变而未自动应用的素材，可以手动选用。
@@ -98,7 +101,7 @@ npm start
 - 重启后正在执行的导出标记为已中断，排队任务继续；已有成片不丢失。
 - 素材下载拒绝本地与私有网络地址，并固定经过检查的目标 IP。遇到代理的 `198.18/15` Fake-IP DNS 时，会向 Google Public DNS 的固定 HTTPS 接口查询真实公共地址；只发送素材主机名，不发送密钥或素材正文。
 
-真实账户已验证 DeepSeek Flash 分镜规划、单镜头改写，以及一张 DreamAPI 图片的生成、保存与应用。真实配音尚未验收；自动化测试中的图片／配音供应商使用模拟服务。
+真实账户已验证 DeepSeek Flash 分镜规划、单镜头改写，以及一张 DreamAPI 图片的生成、保存与应用。真实配音尚未验收；自动化测试中的图片／配音供应商使用模拟服务。Codex CLI 已在 macOS 实测通过 15 秒、3 镜头规划与单镜头改写；GPT/OpenAI API、Claude API、Claude CLI 仅通过模拟协议测试，Claude 真实账户待同事验收。详见[本地迭代验收](docs/local-iteration-2026-11-16.md)。
 
 ## 测试
 

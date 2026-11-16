@@ -8,6 +8,7 @@ import { spawnSync } from "node:child_process";
 import { chromium } from "playwright-core";
 import { createApp } from "../server/app.js";
 import { browserPath, wavBuffer } from "../server/render.js";
+import { makeSrt } from "../shared/model.js";
 import { contentOf } from "../server/store.js";
 
 const root = process.cwd(),
@@ -352,6 +353,17 @@ try {
   await page
     .getByRole("button", { name: "用 DeepSeek 修改", exact: true })
     .click();
+  await waitFor(
+    async () =>
+      (await page
+        .getByRole("textbox", { name: "镜头标题", exact: true })
+        .inputValue()) === "AI 修改的镜头",
+  );
+  assert.notEqual(
+    (await request(`/api/projects/${p.id}`)).scenes[0].title,
+    "AI 修改的镜头",
+  );
+  await page.getByRole("button", { name: "应用修改", exact: true }).click();
   await waitFor(async () => {
     const q = await request(`/api/projects/${p.id}`);
     return (
@@ -383,6 +395,107 @@ try {
   await page.locator(".attached-audio audio").waitFor();
   checks.push(
     "Mocked DreamAPI image and TTS retained by task ID and attached to intended shot",
+  );
+  const beforeVisual = await request(`/api/projects/${p.id}`);
+  const lock = page.getByRole("checkbox", {
+    name: "只换画面，锁定时序",
+    exact: true,
+  });
+  await lock.check();
+  assert.ok(
+    await page
+      .getByRole("textbox", { name: "旁白与字幕", exact: true })
+      .isDisabled(),
+  );
+  assert.ok(
+    await page
+      .getByRole("spinbutton", { name: "镜头时长", exact: true })
+      .isDisabled(),
+  );
+  assert.ok(
+    await page
+      .getByRole("button", { name: "移除配音", exact: true })
+      .isDisabled(),
+  );
+  await page
+    .getByRole("textbox", { name: "画面描述", exact: true })
+    .fill("A new rain cloud, with all timing preserved.");
+  await page.getByRole("button", { name: "应用修改", exact: true }).click();
+  await waitFor(async () =>
+    (await request(`/api/projects/${p.id}`)).scenes[0].visual.startsWith(
+      "A new rain",
+    ),
+  );
+  const afterVisual = await request(`/api/projects/${p.id}`);
+  assert.equal(makeSrt(afterVisual), makeSrt(beforeVisual));
+  assert.equal(afterVisual.scenes[0].audio, beforeVisual.scenes[0].audio);
+  assert.deepEqual(afterVisual.scenes.slice(1), beforeVisual.scenes.slice(1));
+  await lock.uncheck();
+  const durationInput = page.getByRole("spinbutton", {
+    name: "镜头时长",
+    exact: true,
+  });
+  await durationInput.fill(String(afterVisual.scenes[0].duration + 1));
+  await page.getByRole("button", { name: "应用修改", exact: true }).click();
+  assert.equal(
+    (await request(`/api/projects/${p.id}`)).revision,
+    afterVisual.revision,
+  );
+  await page
+    .getByRole("checkbox", { name: "我已了解这些影响", exact: true })
+    .check();
+  await page.getByRole("button", { name: "应用修改", exact: true }).click();
+  await waitFor(
+    async () =>
+      (await request(`/api/projects/${p.id}`)).scenes[0].duration ===
+      afterVisual.scenes[0].duration + 1,
+  );
+  // Undo must disclose the time shift and leave the project unchanged when cancelled.
+  const cancelledUndo = page.waitForEvent("dialog").then((d) => d.dismiss());
+  await page.getByRole("button", { name: "撤销镜头修改", exact: true }).click();
+  await cancelledUndo;
+  assert.equal(
+    (await request(`/api/projects/${p.id}`)).scenes[0].duration,
+    afterVisual.scenes[0].duration + 1,
+  );
+  const acceptedUndo = page.waitForEvent("dialog").then((d) => d.accept());
+  await page.getByRole("button", { name: "撤销镜头修改", exact: true }).click();
+  await acceptedUndo;
+  await waitFor(
+    async () =>
+      (await request(`/api/projects/${p.id}`)).scenes[0].duration ===
+      afterVisual.scenes[0].duration,
+  );
+  await page
+    .getByRole("textbox", { name: "旁白与字幕", exact: true })
+    .fill("Changed narration needs a new voice.");
+  await page
+    .getByText("旁白已改变，旧配音将解除关联，需要重新生成配音。", {
+      exact: true,
+    })
+    .waitFor();
+  await page.getByRole("button", { name: "应用修改", exact: true }).click();
+  assert.equal(
+    (await request(`/api/projects/${p.id}`)).scenes[0].audio,
+    afterVisual.scenes[0].audio,
+  );
+  await page
+    .getByRole("checkbox", { name: "我已了解这些影响", exact: true })
+    .check();
+  await page.getByRole("button", { name: "应用修改", exact: true }).click();
+  await waitFor(
+    async () => !(await request(`/api/projects/${p.id}`)).scenes[0].audio,
+  );
+  const restoredVoice = page.waitForEvent("dialog").then((d) => d.accept());
+  await page.getByRole("button", { name: "撤销镜头修改", exact: true }).click();
+  await restoredVoice;
+  await waitFor(
+    async () =>
+      (await request(`/api/projects/${p.id}`)).scenes[0].audio ===
+      afterVisual.scenes[0].audio,
+  );
+  checks.push(
+    "Visual lock preserves SRT and voice; timing/narration require acknowledgement; undo discloses impact",
   );
   p = await request(`/api/projects/${p.id}`);
   p = await request(`/api/projects/${p.id}`, "PATCH", {

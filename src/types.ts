@@ -49,6 +49,15 @@ export interface MediaTask {
   error?: string;
 }
 export interface Settings {
+  textProvider: string;
+  textConfigured: boolean;
+  cliAvailable: { codex: boolean; claude: boolean };
+  openaiConfigured: boolean;
+  anthropicConfigured: boolean;
+  openaiModel: string;
+  anthropicModel: string;
+  codexModel: string;
+  claudeModel: string;
   deepseekConfigured: boolean;
   dreamapiConfigured: boolean;
   model: string;

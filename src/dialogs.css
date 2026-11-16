@@ -104,6 +104,7 @@ progress::-moz-progress-bar {
   padding: 24px;
 }
 .modal {
+  --modal-inset: 24px;
   width: 520px;
   max-width: 100%;
   max-height: calc(100dvh - 48px);
@@ -131,7 +132,7 @@ progress::-moz-progress-bar {
   font-size: 16px;
 }
 .modal-body {
-  padding: 24px;
+  padding: var(--modal-inset);
 }
 .modal-body > .field {
   margin-bottom: 20px;
@@ -423,8 +424,8 @@ progress::-moz-progress-bar {
   .modal-head {
     padding: 16px 20px;
   }
-  .modal-body {
-    padding: 20px;
+  .modal {
+    --modal-inset: 20px;
   }
   .form-columns {
     grid-template-columns: 1fr;
@@ -473,4 +474,105 @@ progress::-moz-progress-bar {
   font-weight: 600;
   overflow-wrap: anywhere;
   margin-bottom: 16px;
+}
+
+.visual-lock,
+.edit-impact label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+.visual-lock input,
+.edit-impact input {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+.edit-impact {
+  padding: 12px 20px;
+  border-top: 1px solid currentColor;
+  font-size: 13px;
+}
+.edit-impact p {
+  margin: 0 0 8px;
+}
+.text-provider-config {
+  padding: 12px 0;
+}
+
+/* Settings are a task form: consistent native controls, restrained hierarchy. */
+.settings-select {
+  display: block;
+  position: relative;
+  width: 100%;
+}
+.field .settings-select select {
+  background-image: none;
+  padding-inline-end: 44px;
+  cursor: pointer;
+}
+.settings-select > svg {
+  position: absolute;
+  inset-inline-end: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  color: var(--secondary);
+  pointer-events: none;
+}
+.settings-select select:hover:not(:disabled) {
+  border-color: var(--secondary);
+}
+.settings-select:focus-within > svg {
+  color: var(--accent);
+}
+.settings-select select:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.settings-select:has(select:disabled) > svg {
+  opacity: 0.5;
+}
+.settings-form .text-provider-config {
+  display: grid;
+  gap: 16px;
+  padding: 0;
+}
+.settings-form .text-provider-config .field,
+.settings-form .text-provider-config .field-hint {
+  margin: 0;
+}
+.settings-form .model-picker {
+  display: grid;
+  gap: 8px;
+}
+.settings-form .model-picker .field + .field {
+  margin-top: 8px;
+}
+.settings-form .modal-actions {
+  position: sticky;
+  bottom: 0;
+  margin-inline: calc(-1 * var(--modal-inset));
+  margin-bottom: calc(-1 * var(--modal-inset));
+  padding: 16px var(--modal-inset);
+  background: var(--bg);
+  z-index: 1;
+}
+.settings-save-status {
+  margin-inline-end: auto;
+  color: var(--secondary);
+  font-size: 13px;
+}
+:root[data-theme="dark"] .settings-select select {
+  color-scheme: dark;
+}
+@media (max-width: 480px) {
+  .settings-save-status {
+    flex-basis: 100%;
+  }
+  .settings-save-status:empty {
+    display: none;
+  }
 }

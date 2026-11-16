@@ -20,7 +20,8 @@ The launch film passes through Flare's image-assisted renderer and export queue.
 
 ## What you can do
 
-- **Plan and revise:** local script splitting, optional DeepSeek storyboarding and natural-language revision of one shot.
+- **Plan and revise:** local script splitting, optional DeepSeek, GPT/OpenAI or Claude storyboarding and natural-language revision of one shot. Use API keys or your signed-in local Codex/Claude CLI.
+- **Replace visuals safely:** lock shot timing, narration, voice and subtitles while changing visuals. Review AI revisions before applying; duration/narration edits and undo disclose their impact.
 - **Direct each shot:** edit text, duration, composition, color and artwork; reorder, add, delete or undo individual shots.
 - **Bring your visuals:** import images or generate images and narration through [DreamAPI](https://api.newportai.com/) with your own keys.
 - **Explore styles:** 99 upstream style references, demo links and production guides. Eight have basic procedural renderers; the other 91 require images. Flare also includes three original procedural styles.
@@ -32,7 +33,7 @@ The launch film passes through Flare's image-assisted renderer and export queue.
 
 [**DreamAPI**](https://api.newportai.com/) powers Flare’s optional image and narration generation. Generate visuals for individual shots and turn narration into speech, then edit and export the result in Flare.
 
-Visit the [DreamAPI website](https://api.newportai.com/) to explore its playground and models, get your API key, and add it in Flare’s Settings. DeepSeek handles storyboarding and shot rewrites separately.
+Visit the [DreamAPI website](https://api.newportai.com/) to explore its playground and models, get your API key, and add it in Flare’s Settings. Your selected text model handles storyboarding and shot rewrites separately.
 
 ## Run locally
 
@@ -55,11 +56,13 @@ For development, use `npm run dev`. To change ports, use `PORT=4318 npm start`. 
 
 ## Keys and costs
 
-Local planning and procedural exports need no API key. Configure your own DeepSeek and DreamAPI keys in Settings, or use `DEEPSEEK_API_KEY` and `DREAMAPI_API_KEY` environment variables.
+Local planning and procedural exports need no API key. In Settings, choose DeepSeek, GPT/OpenAI API, Claude/Anthropic API, Codex CLI or Claude CLI for storyboarding and revision. For APIs, enter the key and choose a model from the dropdown; Custom model remains available for other model IDs. Environment keys: `DEEPSEEK_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `DREAMAPI_API_KEY`.
+
+For CLI mode, install a current Codex or Claude CLI and sign in from your terminal first. Flare detects the executable on PATH or in `~/.local/bin`; choose CLI · Default to use the CLI default without entering a model name. Flare runs a separate, temporary session with tools disabled and validates the returned storyboard data. CLI mode still calls cloud models and uses your account quota; it is not offline inference. It does not add Flare to your coding assistant.
 
 Keys are stored locally in `.flare/settings.json` with mode `600`, **not encrypted**. They are excluded from Git and project exports. Do not share that directory or its backups. Environment variables take precedence over saved settings.
 
-DeepSeek planning/revision and DreamAPI generation use your provider balance. Image and narration submissions require confirmation. Failed or uncertain submissions are not automatically resubmitted as new paid jobs.
+API planning/revision and DreamAPI generation use your provider balance. CLI calls use the signed-in CLI account. Image and narration submissions require confirmation. Failed or uncertain submissions are not automatically resubmitted as new paid jobs.
 
 ## Scope and limits
 
@@ -67,7 +70,7 @@ Flare is a short-film editor and renderer, not a full multi-track NLE or an auto
 
 Projects support 1–16 shots and 3–120 seconds total. Project JSON references media rather than embedding it; copy the corresponding `.flare/media/` files when moving a project. Narration that exceeds its shot duration must be shortened or the shot extended.
 
-Live-account validation covers DeepSeek Flash planning and single-shot revision, plus one DreamAPI image generated, saved and applied. Live narration is **not yet verified**. Automated provider tests use mocks.
+Live-account validation covers DeepSeek Flash planning and single-shot revision, plus one DreamAPI image generated, saved and applied. Live narration is **not yet verified**. Codex CLI has also passed live planning (15 seconds, 3 shots) and single-shot revision on macOS. GPT/OpenAI API, Claude API and Claude CLI have passed mock protocol tests only; live Claude validation is pending. See [local iteration acceptance](docs/local-iteration-2026-11-16.md).
 
 ## Verification
 

@@ -51,7 +51,7 @@ export const BriefSchema = z.object({
   style: z.enum(STYLE_IDS),
   aspect: z.enum(["16:9", "9:16", "1:1"]),
   duration: z.number().min(10).max(90),
-  mode: z.enum(["local", "deepseek"]),
+  mode: z.enum(["local", "deepseek", "ai"]),
 });
 export function totalDuration(p) {
   return p.scenes.reduce((n, s) => n + s.duration, 0);
