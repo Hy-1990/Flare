@@ -7,12 +7,11 @@ import { chromium } from "playwright-core";
 import { createApp } from "../server/app.js";
 import { browserPath } from "../server/render.js";
 import { contentOf } from "../server/store.js";
+import { getStyle, STYLE_SOURCE } from "../shared/styles.js";
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "flare-ui-")),
   out = path.resolve("docs/verification/ui-refinement");
 fs.mkdirSync(out, { recursive: true });
-fs.cpSync(".flare/style-library", path.join(dir, "style-library"), {
-  recursive: true,
-});
+
 let browser, server;
 const errors = [],
   checks = [];
@@ -28,6 +27,33 @@ try {
   const context = await browser.newContext({
     viewport: { width: 1440, height: 1000 },
   });
+  // UI checks use explicit fixtures, never the developer's private runtime cache.
+  // Pinned-source integrity is tested separately in styles.test.js.
+  await context.route("**/api/styles/*/guide", async (route) => {
+    const slug = new URL(route.request().url()).pathname.split("/")[3];
+    const style = getStyle("opuscar:" + slug);
+    await route.fulfill({
+      json: {
+        id: style.id,
+        slug,
+        markdown: "# UI fixture\n\nKeep type legible.",
+        sourceUrl: style.guideUrl,
+        commit: STYLE_SOURCE.commit,
+        license: "CC BY-NC 4.0",
+        attribution: "UI test fixture",
+        licenseUrl: "https://creativecommons.org/licenses/by-nc/4.0/",
+      },
+    });
+  });
+  await context.route("**/api/styles/*/poster.jpg", (route) =>
+    route.fulfill({
+      contentType: "image/png",
+      body: Buffer.from(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aRZkAAAAASUVORK5CYII=",
+        "base64",
+      ),
+    }),
+  );
   const p = await context.newPage();
   p.on("pageerror", (e) => errors.push(e.message));
   p.on("console", (m) => {
