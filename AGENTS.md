@@ -10,3 +10,4 @@
 - The original UI direction is a quiet editing desk: film first, storyboard second, inspector third. Use restrained graphite surfaces, ember accent, real film frames and Lucide icons. See the unslop acknowledgment.
 - Run `npm test`, `npm run build`, `npm run test:e2e` and `npm run format:check` before handing over changes affecting these paths. E2E uses temporary data and no paid services.
 - Be explicit about external integrations not validated against a real account. Do not describe mocked provider tests as live validation.
+- Every shipped fix requires a new semantic version and a GitHub Release with English changes, installation, validation and known limitations. Update package.json and package-lock.json together. Follow docs/releasing.md; do not reuse published tags or announce a release before both OS checks pass.

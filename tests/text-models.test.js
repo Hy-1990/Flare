@@ -297,3 +297,43 @@ test("HTTP visual endpoint rejects protected fields; AI preview never persists a
   assert.equal(settings.textProvider, "codex");
   assert.equal(settings.openaiKey, undefined);
 });
+
+test("Windows npm CLI entries are found in paths with spaces without invoking cmd", async () => {
+  const { cliPath } = await import("../server/text-models.js");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "flare npm "));
+  try {
+    const entry = path.join(
+      dir,
+      "node_modules",
+      "@openai",
+      "codex",
+      "bin",
+      "codex.js",
+    );
+    fs.mkdirSync(path.dirname(entry), { recursive: true });
+    fs.writeFileSync(entry, "// fixture");
+    assert.equal(
+      cliPath("codex", { platform: "win32", env: { PATH: dir }, home: dir }),
+      entry,
+    );
+    let observed;
+    await runTextCli(
+      "codex",
+      "",
+      "test",
+      {},
+      {
+        executable: entry,
+        spawnFn: (bin, args, opts) => {
+          observed = { bin, args, opts };
+          return fakeSpawn("codex")(bin, args, opts);
+        },
+      },
+    );
+    assert.equal(observed.bin, process.execPath);
+    assert.equal(observed.args[0], entry);
+    assert.equal(observed.opts.shell, false);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

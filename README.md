@@ -37,14 +37,15 @@ Visit the [DreamAPI website](https://api.newportai.com/) to explore its playgrou
 
 ## Run locally
 
-Requires **Node.js 22.13+** and **FFmpeg 7+** on your PATH. Validated on macOS Apple Silicon; Linux and Windows are not yet verified.
+Requires **Node.js 22.13+** and **FFmpeg 7+** on your PATH. See the [macOS and Windows installation guide](docs/installation.md) for prerequisites, PowerShell commands, upgrades and troubleshooting. [CI](https://github.com/Hy-1990/Flare/actions/workflows/verify-and-release.yml) checks both platforms; consult its results for the released version. Linux is not in the verification matrix.
 
 ```bash
 git clone https://github.com/Hy-1990/Flare.git
 cd Flare
-npm install
+npm ci
 npm run setup:browser
 npm run build
+npm run doctor
 npm start
 ```
 
@@ -52,7 +53,7 @@ Open **http://127.0.0.1:4317**. The server listens on loopback only.
 
 Optional: `npm run styles:sync` caches the pinned style guides and posters for offline use (about 35 MB). Without this step, references load on demand; upstream demo videos require internet access.
 
-For development, use `npm run dev`. To change ports, use `PORT=4318 npm start`. Set `FLARE_DATA_DIR` to change the data location; the default is `.flare/`.
+For development, use `npm run dev`. On macOS, change ports with `PORT=4318 npm start`; on Windows PowerShell, set `$env:PORT = "4318"` then run `npm.cmd start`. Set `FLARE_DATA_DIR` to change the data location; the default is `.flare/`.
 
 ## Keys and costs
 
@@ -60,7 +61,7 @@ Local planning and procedural exports need no API key. In Settings, choose DeepS
 
 For CLI mode, install a current Codex or Claude CLI and sign in from your terminal first. Flare detects the executable on PATH or in `~/.local/bin`; choose CLI · Default to use the CLI default without entering a model name. Flare runs a separate, temporary session with tools disabled and validates the returned storyboard data. CLI mode still calls cloud models and uses your account quota; it is not offline inference. It does not add Flare to your coding assistant.
 
-Keys are stored locally in `.flare/settings.json` with mode `600`, **not encrypted**. They are excluded from Git and project exports. Do not share that directory or its backups. Environment variables take precedence over saved settings.
+Keys are stored locally in `.flare/settings.json`, **not encrypted**. Unix systems use mode `600`; Windows uses inherited account ACLs, so keep the folder private. They are excluded from Git and project exports. Do not share that directory or its backups. Environment variables take precedence over saved settings.
 
 API planning/revision and DreamAPI generation use your provider balance. CLI calls use the signed-in CLI account. Image and narration submissions require confirmation. Failed or uncertain submissions are not automatically resubmitted as new paid jobs.
 
@@ -84,6 +85,10 @@ npm run format:check
 ```
 
 Tests use isolated temporary projects and mock providers, not your paid account. The end-to-end suite exports real MP4 files and checks preview/export agreement, audio, subtitles, layouts and persistence. Optional `npm run test:styles` uses the synced reference cache.
+
+## Releases
+
+Every shipped fix gets a versioned [GitHub Release](https://github.com/Hy-1990/Flare/releases) with English change notes. See the [release policy](docs/releasing.md). Releases contain source archives, not signed desktop installers.
 
 ## Architecture
 

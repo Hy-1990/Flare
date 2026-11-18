@@ -1,0 +1,64 @@
+name: Verify and release
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, windows-2022]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install FFmpeg (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ffmpeg
+      - name: Install FFmpeg (Windows)
+        if: runner.os == 'Windows'
+        run: choco install ffmpeg --no-progress -y
+      - run: npm ci
+      - run: npm run setup:browser
+      - run: npm test
+      - run: npm run build
+      - run: npm run doctor
+      - run: npm run test:e2e
+      - run: npm run test:ui
+      - run: npm run format:check
+      - run: npm run release:check
+  release:
+    needs: verify
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm run release:check
+      - name: Publish versioned source release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          version=$(node -p "require('./package.json').version")
+          if gh release view "v$version" >/dev/null 2>&1; then
+            target=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v$version" --jq '.object.sha')
+            if [ "$target" != "$GITHUB_SHA" ]; then
+              echo "This version is already released. Bump the patch version and add English release notes."
+              exit 1
+            fi
+            exit 0
+          fi
+          gh release create "v$version" --target "$GITHUB_SHA" --title "Flare v$version" --notes-file "docs/releases/v$version.md"

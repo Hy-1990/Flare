@@ -12,12 +12,22 @@ export function browserPath() {
   if (process.env.FLARE_CHROMIUM) return process.env.FLARE_CHROMIUM;
   const cached = chromium.executablePath();
   if (fs.existsSync(cached)) return cached;
-  const root = path.join(
-    os.homedir(),
-    process.platform === "darwin"
-      ? "Library/Caches/ms-playwright"
-      : ".cache/ms-playwright",
-  );
+  const root =
+    process.env.PLAYWRIGHT_BROWSERS_PATH &&
+    process.env.PLAYWRIGHT_BROWSERS_PATH !== "0"
+      ? path.resolve(process.env.PLAYWRIGHT_BROWSERS_PATH)
+      : process.platform === "win32"
+        ? path.join(
+            process.env.LOCALAPPDATA ||
+              path.join(os.homedir(), "AppData", "Local"),
+            "ms-playwright",
+          )
+        : path.join(
+            os.homedir(),
+            process.platform === "darwin"
+              ? "Library/Caches/ms-playwright"
+              : ".cache/ms-playwright",
+          );
   if (fs.existsSync(root))
     for (const dir of fs
       .readdirSync(root)
@@ -27,6 +37,7 @@ export function browserPath() {
         "chrome-headless-shell-mac-arm64/chrome-headless-shell",
         "chrome-headless-shell-mac-x64/chrome-headless-shell",
         "chrome-headless-shell-linux64/chrome-headless-shell",
+        "chrome-headless-shell-win64/chrome-headless-shell.exe",
       ]) {
         let p = path.join(root, dir, s);
         if (fs.existsSync(p)) return p;

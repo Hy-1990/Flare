@@ -117,7 +117,9 @@ export async function createApp({
     } catch {}
     res.json({
       ok: true,
-      version: "0.1.0",
+      version: JSON.parse(
+        fs.readFileSync(new URL("../package.json", import.meta.url), "utf8"),
+      ).version,
       ffmpeg:
         spawnSync("ffmpeg", ["-version"], { stdio: "ignore" }).status === 0,
       browser,

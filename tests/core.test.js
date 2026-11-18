@@ -194,7 +194,9 @@ test("HTTP validation, invalid import preservation, secret isolation and loopbac
   });
   assert.equal(saved.status, 200);
   assert.ok(!JSON.stringify(saved).includes(secret));
-  assert.equal(fs.statSync(a.store.settingsFile).mode & 0o777, 0o600);
+  // Windows uses inherited ACLs rather than POSIX permission bits.
+  if (process.platform !== "win32")
+    assert.equal(fs.statSync(a.store.settingsFile).mode & 0o777, 0o600);
   const hostStatus = await new Promise((resolve, reject) => {
     const req = http.request(
       a.base + "/api/health",

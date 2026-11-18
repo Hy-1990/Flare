@@ -6,11 +6,17 @@ import { AppError } from "./store.js";
 import { readBounded, planDeepseek, rewriteDeepseek } from "./providers.js";
 import { TEXT_PROVIDERS } from "../shared/providers.js";
 
-export function cliPath(name) {
-  const binary = process.platform === "win32" ? `${name}.exe` : name;
+export function cliPath(
+  name,
+  { platform = process.platform, env = process.env, home = os.homedir() } = {},
+) {
+  const binary = platform === "win32" ? `${name}.exe` : name;
   const dirs = [
-    ...(process.env.PATH || "").split(path.delimiter),
-    path.join(os.homedir(), ".local/bin"),
+    ...(env.PATH || "").split(platform === "win32" ? ";" : ":"),
+    path.join(home, ".local/bin"),
+    ...(platform === "win32" && env.APPDATA
+      ? [path.join(env.APPDATA, "npm")]
+      : []),
     "/opt/homebrew/bin",
     "/usr/local/bin",
   ];
@@ -21,6 +27,27 @@ export function cliPath(name) {
       fs.accessSync(file, fs.constants.X_OK);
       return file;
     } catch {}
+    // Resolve known npm entry points directly; never execute a .cmd shim through a shell.
+    if (platform === "win32") {
+      const entry =
+        name === "codex"
+          ? path.join(
+              dir,
+              "node_modules",
+              "@openai",
+              "codex",
+              "bin",
+              "codex.js",
+            )
+          : path.join(
+              dir,
+              "node_modules",
+              "@anthropic-ai",
+              "claude-code",
+              "cli.js",
+            );
+      if (fs.existsSync(entry)) return entry;
+    }
   }
   return null;
 }
@@ -113,6 +140,8 @@ export async function runTextCli(
       "PATH",
       "HOME",
       "USERPROFILE",
+      "LOCALAPPDATA",
+      "APPDATA",
       "SYSTEMROOT",
       "TMPDIR",
       "LANG",
@@ -125,12 +154,17 @@ export async function runTextCli(
     ])
       if (process.env[k]) env[k] = process.env[k];
     const stdout = await new Promise((resolve, reject) => {
-      const child = spawnFn(bin, args, {
-        cwd: dir,
-        env,
-        stdio: ["pipe", "pipe", "pipe"],
-        shell: false,
-      });
+      const nodeEntry = bin.endsWith(".js");
+      const child = spawnFn(
+        nodeEntry ? process.execPath : bin,
+        nodeEntry ? [bin, ...args] : args,
+        {
+          cwd: dir,
+          env,
+          stdio: ["pipe", "pipe", "pipe"],
+          shell: false,
+        },
+      );
       let buffer = "",
         bytes = 0,
         done = false;

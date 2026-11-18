@@ -39,14 +39,18 @@ _28 秒动图预览 · 点击打开带声音的完整视频。_
 
 访问 [DreamAPI 官网](https://api.newportai.com/)，体验模型与在线 Playground、获取 API Key，然后填入 Flare 设置页。分镜规划和单镜头改写由所选文本模型提供。
 
+## 安装与发布
+
+macOS 与 Windows 的依赖安装、PowerShell 命令、升级和故障处理见[英文安装指南](docs/installation.md)。每次发布修复都必须升级版本并附英文 [Release Notes](docs/releasing.md)。发布前由 CI 检查双系统；具体结果以该版本的 Actions 记录为准。当前提供源码包，不提供 DMG / MSI 安装器。
+
 ## 运行
 
-需要 **Node.js 22.13+、FFmpeg 7+**。当前在 macOS Apple Silicon 上验证；Linux/Windows 尚未完成验收。
+需要 **Node.js 22.13+、FFmpeg 7+**。macOS 与 Windows 由 CI 执行安装和导出检查；验收状态见对应版本的 Actions 记录。Linux 不在当前验证矩阵内。
 
 ```bash
 git clone https://github.com/Hy-1990/Flare.git
 cd Flare
-npm install
+npm ci
 npm run setup:browser
 npm run build
 npm run styles:sync
@@ -74,7 +78,7 @@ npm start
 
 CLI 模式先安装新版 Codex / Claude CLI 并在终端登录。Flare 从 PATH 或 `~/.local/bin` 检测程序，模型选择「CLI · 默认」即可，不需要填写模型名称。它在独立临时会话中调用模型，关闭工具并校验分镜数据，不把 Flare 嵌入编程助手。CLI 仍访问云端并消耗登录账户额度，不是离线模型。
 
-密钥保存在 `.flare/settings.json`，文件权限为 `600`，**没有加密**。密钥不会写入项目、字幕、导出快照或浏览器存储，接口只返回是否配置。不要共享 `.flare/settings.json` 或包含它的备份。移除界面中的密钥不改变外部环境变量。
+密钥保存在 `.flare/settings.json`，**没有加密**。Unix 使用 `600` 权限，Windows 依赖当前账户的目录 ACL，请使用私有目录。密钥不会写入项目、字幕、导出快照或浏览器存储，接口只返回是否配置。不要共享 `.flare/settings.json` 或包含它的备份。移除界面中的密钥不改变外部环境变量。
 
 - 本地分镜和程序动画导出不调用模型。
 - AI 规划与改写使用所选 API 或 CLI 账户额度。

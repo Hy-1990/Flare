@@ -16,8 +16,8 @@ const server = app.listen(port, "127.0.0.1", () => {
 server.on("error", (e) => {
   console.error(
     e.code === "EADDRINUSE"
-      ? `端口 ${port} 已被使用，请设置 PORT 后重试`
-      : "无法启动本地服务",
+      ? `Port ${port} is already in use. Set PORT to another number and try again.`
+      : "Could not start the local server.",
   );
   process.exit(1);
 });
